@@ -6,6 +6,7 @@ from aim_build.utils import *
 PrefixIncludePath = functools.partial(prefix, "-I")
 PrefixLibraryPath = functools.partial(prefix, "-L")
 PrefixLibrary = functools.partial(prefix, "-l")
+PrefixHashDefine = functools.partial(prefix, "-D")
 ToObjectFiles = src_to_o
 
 FileExtensions = ["*.cpp", "*.cc", ".c"]
@@ -114,6 +115,7 @@ class GCCBuilds:
         if extra_flags:
             cxxflags += extra_flags
         defines = local_defines if local_defines else build["global_defines"]
+        defines = PrefixHashDefine(defines)
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
         src_files = get_src_files(build)
@@ -157,6 +159,7 @@ class GCCBuilds:
 
         cxxflags = local_flags if local_flags else build["global_flags"]
         defines = local_defines if local_defines else build["global_defines"]
+        defines = PrefixHashDefine(defines)
         archiver = local_archiver if local_archiver else build["global_archiver"]
 
         build_path = build["buildPath"]
@@ -200,6 +203,7 @@ class GCCBuilds:
 
         cxxflags = local_flags if local_flags else build["global_flags"]
         defines = local_defines if local_defines else build["global_defines"]
+        defines = PrefixHashDefine(defines)
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
         requires = build.get("requires", [])
@@ -284,6 +288,7 @@ class GCCBuilds:
 
         cxxflags = local_flags if local_flags else build["global_flags"]
         defines = local_defines if local_defines else build["global_defines"]
+        defines = PrefixHashDefine(defines)
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
         includes = get_include_paths(build)

@@ -1,6 +1,6 @@
 import cerberus
 from pathlib import Path
-from typing import Union
+from typing import Union,List
 
 
 class UniqueNameChecker:
@@ -17,6 +17,16 @@ class UniqueNameChecker:
             self.name_lookup.append(value)
 
 
+class DefinesPrefixChecker:
+    def check(self, field, defines: List[str], error):
+        for value in defines:
+            if value.startswith("-D"):
+                error(
+                    field,
+                    f"Unnecessary -D prefix in {field}: {defines}. Aim will add this automatically.",
+                )
+
+
 class RequiresExistChecker:
     def __init__(self, document):
         self.doc = document
@@ -31,7 +41,7 @@ class RequiresExistChecker:
                 error(field, f"{value} does not match any build name. Check spelling.")
 
 
-class PathChecker:
+class RelProjectDirPathChecker:
     def __init__(self, project_dir):
         self.project_dir = project_dir
 
@@ -54,17 +64,17 @@ class AimCustomValidator(cerberus.Validator):
         # TODO: check outputNames are unique to prevent dependency cycle.
 
         def check_convention(_field, _value):
-            errors = []
+            the_errors = []
             if _value.startswith("lib"):
-                error_str = "You should not prefix names with 'lib'."
-                errors.append(error_str)
+                the_error_str = "You should not prefix names with 'lib'."
+                the_errors.append(the_error_str)
 
             suffix = Path(_value).suffix
             if suffix:
-                error_str = f"You should not specify the suffix."
-                errors.append(error_str)
+                the_error_str = f"You should not specify the suffix."
+                the_errors.append(the_error_str)
 
-            return errors
+            return the_errors
 
         # Bit of a hack so strings go through the same code path as lists.
         if isinstance(value, str):
@@ -87,7 +97,8 @@ class AimCustomValidator(cerberus.Validator):
 def target_schema(document, project_dir):
     unique_name_checker = UniqueNameChecker()
     requires_exist_checker = RequiresExistChecker(document)
-    path_checker = PathChecker(project_dir)
+    path_checker = RelProjectDirPathChecker(project_dir)
+    defines_checker = DefinesPrefixChecker()
 
     schema = {
         "compiler": {"required": True, "type": "string"},
@@ -98,7 +109,10 @@ def target_schema(document, project_dir):
             "allowed": ["msvc", "gcc", "osx"],
         },
         "flags": {"type": "list", "schema": {"type": "string"}, "empty": False},
-        "defines": {"type": "list", "schema": {"type": "string"}, "empty": False},
+        "defines": {"type": "list",
+                    "schema": {"type": "string"},
+                    "empty": False,
+                    "check_with": defines_checker.check},
         "projectRoot": {"required": True, "type": "string", "empty": False},
         "builds": {
             "required": True,
@@ -115,7 +129,8 @@ def target_schema(document, project_dir):
                     "defines": {
                         "type": "list",
                         "schema": {"type": "string"},
-                        "default": [],
+                        "empty": False,
+                        "check_with": defines_checker.check,
                     },
                     "flags": {
                         "type": "list",
