@@ -342,11 +342,12 @@ def run_list(target_path):
         frontend = parsed_toml["compilerFrontend"]
 
         if frontend == "msvc":
-            builder = msvcbuilds.MSVCBuilds("", "", "")
+            # builder = msvcbuilds.MSVCBuilds("", "", "")
+            assert False, "MSVC frontend is currently not supported."
         elif frontend == "osx":
-            builder = osxbuilds.OsxBuilds("", "", "")
+            builder = osxbuilds.OsxBuilds()
         else:
-            builder = gccbuilds.GCCBuilds("", "", "")
+            builder = gccbuilds.GCCBuilds()
 
         header = ["Item", "Name", "Build Rule", "Output Name"]
         table = []
