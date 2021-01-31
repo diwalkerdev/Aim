@@ -105,12 +105,14 @@ class GCCBuilds:
                 else:
                     raise RuntimeError(f"Unknown build type {the_build}.")
 
-    def add_compile_rule(self, nfw: Writer, build: Dict, parsed_toml):
+    def add_compile_rule(self, nfw: Writer, build: Dict, parsed_toml, extra_flags: StringList = None):
         local_flags = build.get("flags", None)
         local_defines = build.get("defines", None)
         local_compiler = build.get("compiler", None)
 
         cxxflags = local_flags if local_flags else build["global_flags"]
+        if extra_flags:
+            cxxflags += extra_flags
         defines = local_defines if local_defines else build["global_defines"]
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
@@ -304,7 +306,9 @@ class GCCBuilds:
             + link_libraries
         )
 
-        obj_files = self.add_compile_rule(cfw, build, parsed_toml)
+        extra_flags = ["-fvisibility=hidden",
+                      "-fPIC"]
+        obj_files = self.add_compile_rule(cfw, build, parsed_toml, extra_flags)
 
         build_path = build["buildPath"]
 

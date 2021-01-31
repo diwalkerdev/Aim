@@ -72,6 +72,8 @@ def run_ninja_generation(parsed_toml, project_dir: Path, build_dir: Path):
 
 
 def entry():
+    # print("DEV")
+
     # TODO: Get version automatically from the pyproject.toml file.
     parser = argparse.ArgumentParser(description=f"Version {__version__}")
 
