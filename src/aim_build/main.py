@@ -74,6 +74,10 @@ def run_ninja_generation(parsed_toml, project_dir: Path, build_dir: Path):
 def entry():
     # print("DEV")
 
+    script_path = Path(__file__).parent
+    print(str(script_path))
+    assert((script_path / "../../demo/Calculator/builds/linux-clang++-debug/target.toml").exists())
+
     # TODO: Get version automatically from the pyproject.toml file.
     parser = argparse.ArgumentParser(description=f"Version {__version__}")
 
@@ -106,7 +110,7 @@ def entry():
     )
 
     build_parser = sub_parser.add_parser(
-        "clobber", help="deletes all build artefacts for the specified target"
+        "clobber", help="deletes all build artifacts for the specified target"
     )
     build_parser.add_argument(
         "--target", type=str, required=True, help="path to target file directory"
@@ -239,7 +243,7 @@ int main()
 
 def run_init(add_demo_files):
     project_dir = Path().cwd()
-    dirs = ["include", "src", "lib", "builds"]
+    dirs = ["include", "src", "lib", "tests", "builds"]
     dirs = [project_dir / x for x in dirs]
     print(f"Creating directories...")
     for a_dir in dirs:
@@ -264,7 +268,8 @@ def run_init(add_demo_files):
         toml_file.touch(exist_ok=True)
         print(f"\t{str(toml_file)}")
 
-        toml_file.write_text(WindowsDefaultTomlFile)
+        if add_demo_files:
+            toml_file.write_text(WindowsDefaultTomlFile)
 
     for target in linux_targets:
         target_dir = build_dir / target
@@ -275,7 +280,8 @@ def run_init(add_demo_files):
         toml_file.touch(exist_ok=True)
         print(f"\t{str(toml_file)}")
 
-        toml_file.write_text(LinuxDefaultTomlFile)
+        if add_demo_files:
+            toml_file.write_text(LinuxDefaultTomlFile)
 
     if add_demo_files:
         (dirs[0] / "calculator.h").write_text(CALCULATOR_H)
