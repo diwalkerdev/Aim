@@ -288,6 +288,7 @@ class GCCBuilds:
 
         cxxflags = local_flags if local_flags else build["global_flags"]
         defines = local_defines if local_defines else build["global_defines"]
+        defines.append("EXPORT_DLL_PUBLIC")
         defines = PrefixHashDefine(defines)
         compiler = local_compiler if local_compiler else build["global_compiler"]
 

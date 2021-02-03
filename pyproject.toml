@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/diwalkerdev/Aim"
 repository = "https://github.com/diwalkerdev/Aim"
 keywords = ["cpp", "build-tool", "poetry", "python", "linux", "windows", "macos"]
-include = ["LICENSE", "demo", "demo/Calculator/lib"]
+include = ["LICENSE", "demo.zip"]
 classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Environment :: Console",

@@ -1,9 +1,9 @@
 import argparse
 import subprocess
 import sys
-
+import zipfile
+from typing import Optional
 import toml
-
 from aim_build import gccbuilds
 from aim_build import msvcbuilds
 from aim_build import osxbuilds
@@ -93,7 +93,7 @@ def entry():
 
     init_parser = sub_parser.add_parser("init", help="creates a project structure")
     init_parser.add_argument(
-        "--demo", help="Create additional demo files", action="store_true"
+        "--demofiles", help="Create additional demo files", action="store_true"
     )
 
     build_parser = sub_parser.add_parser("build", help="executes a build")
@@ -119,7 +119,13 @@ def entry():
     args = parser.parse_args()
     mode = args.command
     if mode == "init":
-        run_init(args.demo)
+        zip_file = None
+        zip_path = script_path / "../../demo.zip"
+        if args.demofiles:
+            assert zip_path.exists(), "Failed to find demo zip files"
+            zip_file = zipfile.ZipFile(str(zip_path))
+
+        run_init(zip_file)
     elif mode == "build":
         run_build(args.build, args.target, args.skip_ninja_regen)
     elif mode == "list":
@@ -132,116 +138,7 @@ def entry():
         parser.print_help(sys.stdout)
 
 
-WindowsDefaultTomlFile = """\
-cxx = "clang-cl"
-cc = "clang-cl"
-ar = "llvm-ar"
-compilerFrontend="msvc"
-
-flags = [
-    "/std:c++17",
-    "/Zi",
-]
-
-defines = []
-
-#[[builds]]
-#    name = "static"
-#    buildRule = "staticlib"
-#    outputName = "libraryName.lib"
-#    srcDirs = ["../lib"]
-#    includePaths = ["../include"]
-
-[[builds]]
-    name = "shared"
-    buildRule = "dynamiclib"
-    outputName = "libraryName.dll"
-    srcDirs = ["../lib"]
-    includePaths = ["../include"]
-
-[[builds]]
-    name = "exe"
-    requires= ["shared"]
-    buildRule = "exe"
-    outputName = "exeName.exe"
-    srcDirs = ["../app"]
-    includePaths = ["../lib"]
-    libraryPaths = ["./shared"]
-    libraries = [""]
-"""
-
-LinuxDefaultTomlFile = """\
-projectRoot = "../.."
-
-cxx = "clang++"
-cc = "clang"
-ar = "ar"
-compilerFrontend="gcc"
-
-flags = [
-    "-std=c++17",
-    "-g"
-]
-
-defines = []
-
-[[builds]]                              # a list of builds.
-    name = "lib_calculator"             # the unique name for this build.
-    buildRule = "staticlib"             # the type of build, in this case create a static library.
-    outputName = "Calculator"      # the library output name,
-    srcDirs = ["lib"]                   # the src directories  to build the static library from.
-    includePaths = ["include"]    # additional include paths to use during the build.
-
-#[[builds]]
-#    name = "lib_calculator_so"         # the unique name for this build.
-#    buildRule = "dynamiclib"           # the type of build, in this case create a shared library.
-#    outputName = "Calculator"    # the library output name,
-#    srcDirs = ["lib"]                  # the src directories to build the shared library from.
-#    includePaths = ["include"]         # additional include paths to use during the build.
-
-[[builds]]
-    name = "exe"                        # the unique name for this build.
-    buildRule = "exe"                   # the type of build, in this case an executable.
-    requires = ["lib_calculator"]       # build dependencies. Aim figures out the linker flags for you.
-    outputName = "the_calculator"   # the exe output name,
-    srcDirs = ["src"]                   # the src directories to build the shared library from.
-    includePaths = ["include"]          # additional include paths to use during the build.
-    #libraryPaths = []                   # additional library paths, used for including third party libraries.
-    #libraries = []                      # additional libraries, used for including third party libraries.
-"""
-
-CALCULATOR_CPP = """\
-#include "calculator.h"
-
-float add(float x, float y)
-{
-    return x + y;
-}
-"""
-
-CALCULATOR_H = """\
-#ifndef CALCULATOR_H
-#define CALCULATOR_H
-
-float add(float x, float y);
-
-#endif
-"""
-
-MAIN_CPP = """\
-#include "calculator.h"
-#include <stdio.h>
-
-int main()
-{
-    float result = add(40, 2);
-    printf("The result is %f\\n", result);
-    return 0;
-}
-"""
-
-
-def run_init(add_demo_files):
+def run_init(demo_zip: Optional[zipfile.ZipFile]):
     project_dir = Path().cwd()
     dirs = ["include", "src", "lib", "tests", "builds"]
     dirs = [project_dir / x for x in dirs]
@@ -250,43 +147,30 @@ def run_init(add_demo_files):
         print(f"\t{str(a_dir)}")
         a_dir.mkdir(exist_ok=True)
 
-    windows_targets = [
-        "windows-clang_cl-debug",
-        "windows-clang_cl-release",
-    ]
+    if demo_zip:
+        print("Initialising from demo project...")
+        for file_name in demo_zip.namelist():
+            file_name = Path(file_name)
+            with demo_zip.open(str(file_name)) as the_file:
+                relative_path = file_name.relative_to("demo/Calculator")
+                print(str(relative_path))
+                if relative_path.exists():
+                    print(f"{str(relative_path)} already exists.")
+                    continue
 
-    linux_targets = ["linux-clang++-debug", "linux-clang++-release"]
-
-    print("Creating common build targets...")
-    build_dir = project_dir / "builds"
-    for target in windows_targets:
-        target_dir = build_dir / target
-        target_dir.mkdir(exist_ok=True)
-        # print(f"\t{str(target_dir)}")
-
-        toml_file = target_dir / "target.toml"
-        toml_file.touch(exist_ok=True)
-        print(f"\t{str(toml_file)}")
-
-        if add_demo_files:
-            toml_file.write_text(WindowsDefaultTomlFile)
-
-    for target in linux_targets:
-        target_dir = build_dir / target
-        target_dir.mkdir(exist_ok=True)
-        # print(f"\t{str(target_dir)}")
-
-        toml_file = target_dir / "target.toml"
-        toml_file.touch(exist_ok=True)
-        print(f"\t{str(toml_file)}")
-
-        if add_demo_files:
-            toml_file.write_text(LinuxDefaultTomlFile)
-
-    if add_demo_files:
-        (dirs[0] / "calculator.h").write_text(CALCULATOR_H)
-        (dirs[1] / "main.cpp").write_text(MAIN_CPP)
-        (dirs[2] / "calculator.cpp").write_text(CALCULATOR_CPP)
+                relative_path.parent.mkdir(parents=True, exist_ok=True)
+                relative_path.touch()
+                relative_path.write_bytes(the_file.read())
+    else:
+        print("Creating common build targets...")
+        build_dir = project_dir / "builds"
+        target_files = ["windows-clangcl-debug", "windows-clangcl-release", "linux-clang++-debug",
+                        "linux-clang++-release"]
+        for target in target_files:
+            the_file = build_dir / target / "target.toml"
+            the_file.parent.mkdir(parents=True, exist_ok=True)
+            the_file.touch(exist_ok=True)
+            print(f"\t{str(the_file)}")
 
 
 def run_build(build_name, target_path, skip_ninja_regen):

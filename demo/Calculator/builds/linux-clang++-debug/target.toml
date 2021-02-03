@@ -9,26 +9,36 @@ flags = [
     "-g"
 ]
 
-[[builds]]                              # a list of builds.
-    name = "calculatorstatic"             # the unique name for this build.
-    buildRule = "staticlib"             # the type of build, in this case create a static library.
-    outputName = "Calculator"      # the library output name,
-    srcDirs = ["src"]                   # the src directories  to build the static library from.
-    includePaths = ["include"]    # additional include paths to use during the build.
-
-#[[builds]]
-#    name = "calculatordynamic"         # the unique name for this build.
-#    buildRule = "dynamiclib"           # the type of build, in this case create a shared library.
-#    outputName = "Calculator"    # the library output name,
-#    srcDirs = ["src"]                  # the src directories to build the shared library from.
-#    includePaths = ["include"]         # additional include paths to use during the build.
+[[builds]]                              
+    name = "calculatorstatic"
+    buildRule = "staticlib"
+    outputName = "Calculator"
+    srcDirs = ["src"]
+    includePaths = ["include"]
 
 [[builds]]
-    name = "tests"                        # the unique name for this build.
-    buildRule = "exe"                   # the type of build, in this case an executable.
-    requires = ["calculatorstatic"]       # build dependencies. Aim figures out the linker flags for you.
-    outputName = "CalculatorTests"   # the exe output name,
-    srcDirs = ["tests"]                   # the src directories to build the shared library from.
-    includePaths = ["include"]          # additional include paths to use during the build.
+    name = "calculatordynamic"
+    buildRule = "dynamiclib"
+    outputName = "Calculator"
+    srcDirs = ["src"]
+    includePaths = ["include"]
+
+[[builds]]
+    name = "tests"
+    buildRule = "exe"
+    requires = ["calculatorstatic"]
+    outputName = "CalculatorTests"
+    srcDirs = ["tests"]
+    includePaths = ["include"]
+    #libraryPaths = []                   # additional library paths, used for including third party libraries.
+    #libraries = []                      # additional libraries, used for including third party libraries.
+
+[[builds]]
+    name = "calculatorapp"
+    buildRule = "exe"
+    requires = ["calculatordynamic"]
+    outputName = "CalculatorApp"
+    srcDirs = ["src"]
+    includePaths = ["include"]
     #libraryPaths = []                   # additional library paths, used for including third party libraries.
     #libraries = []                      # additional libraries, used for including third party libraries.
