@@ -115,14 +115,14 @@ def entry():
     build_parser.add_argument(
         "--target", type=str, required=True, help="path to target file directory"
     )
-
+    from aim_build.common import DEMO_ZIP_FILE_NAME
     args = parser.parse_args()
     mode = args.command
     if mode == "init":
         zip_file = None
-        zip_path = script_path / "../../demo.zip"
+        zip_path = script_path / f"../../{DEMO_ZIP_FILE_NAME}"
         if args.demofiles:
-            assert zip_path.exists(), "Failed to find demo zip files"
+            assert zip_path.exists(), f"Failed to find demo zip files: {str(zip_path)}"
             zip_file = zipfile.ZipFile(str(zip_path))
 
         run_init(zip_file)

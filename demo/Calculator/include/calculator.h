@@ -1,4 +1,5 @@
 #pragma once
+#include "dllexports.h"
 
-float add(float x, float y);
-int   add(int x, int y);
+DLL_PUBLIC float add(float x, float y);
+DLL_PUBLIC int   add(int x, int y);

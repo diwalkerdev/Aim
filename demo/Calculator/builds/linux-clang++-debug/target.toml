@@ -12,19 +12,19 @@ flags = [
 [[builds]]                              
     name = "calculatorstatic"
     buildRule = "staticlib"
-    outputName = "Calculator"
-    srcDirs = ["src"]
+    outputName = "CalculatorStatic"
+    srcDirs = ["lib"]
     includePaths = ["include"]
 
 [[builds]]
     name = "calculatordynamic"
     buildRule = "dynamiclib"
-    outputName = "Calculator"
-    srcDirs = ["src"]
+    outputName = "CalculatorShared"
+    srcDirs = ["lib"]
     includePaths = ["include"]
 
 [[builds]]
-    name = "tests"
+    name = "calculatortests"
     buildRule = "exe"
     requires = ["calculatorstatic"]
     outputName = "CalculatorTests"
