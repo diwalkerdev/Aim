@@ -113,7 +113,7 @@ class GCCBuilds:
 
         cxxflags = local_flags if local_flags else build["global_flags"]
         if extra_flags:
-            cxxflags += extra_flags
+            cxxflags = cxxflags + extra_flags
         defines = local_defines if local_defines else build["global_defines"]
         defines = PrefixHashDefine(defines)
         compiler = local_compiler if local_compiler else build["global_compiler"]
@@ -288,8 +288,6 @@ class GCCBuilds:
 
         cxxflags = local_flags if local_flags else build["global_flags"]
         defines = local_defines if local_defines else build["global_defines"]
-        defines.append("EXPORT_DLL_PUBLIC")
-        defines = PrefixHashDefine(defines)
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
         includes = get_include_paths(build)
@@ -312,7 +310,8 @@ class GCCBuilds:
             + link_libraries
         )
 
-        extra_flags = ["-fvisibility=hidden",
+        extra_flags = ["-DEXPORT_DLL_PUBLIC",
+                       "-fvisibility=hidden",
                       "-fPIC"]
         obj_files = self.add_compile_rule(cfw, build, parsed_toml, extra_flags)
 
@@ -321,10 +320,25 @@ class GCCBuilds:
         pfw.subninja(str((Path(build_path) / "build.ninja").resolve()))
 
         relative_output_name = str(build_path / library_name)
+
+        # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
+        # lib .a/.so but the build dependency rule does need the full convention to find the build rule in the library's
+        # build.ninja file.
+        full_library_names = []
+        for name, build_type in zip(requires_libraries, requires_library_types):
+            if build_type == "staticlib":
+                full_library_names.append(
+                    self.add_static_library_naming_convention(name)
+                )
+            else:
+                full_library_names.append(
+                    self.add_dynamic_library_naming_convention(name)
+                )
+
         nfw.build(
             rule="shared",
             inputs=to_str(obj_files),
-            implicit=requires_libraries,
+            implicit=full_library_names,
             outputs=relative_output_name,
             variables={
                 "compiler": compiler,
