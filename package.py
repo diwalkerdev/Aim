@@ -5,7 +5,7 @@ DemoFileExtensionsToZip = [".cpp", ".c", ".h", ".hpp", ".toml"]
 
 # TODO would be nice if there was a way to shared these variables with common.py and pyproject.toml
 DemoDirectory = "./demo"
-DemoZipFileName = "zipdemo.zip"
+DemoZipFileName = "src/aim_build/zipdemo.zip"
 
 
 def zip_dir(path: Path, zip_handle: zipfile.ZipFile):

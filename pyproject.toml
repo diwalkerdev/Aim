@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aim-build"
-version = "0.1.23"
+version = "0.1.24"
 description = "A powerful and easy to use build tool for C++."
 authors = ["David Walker <diwalkerdev@twitter.com>"]
 license = "MPL 2.0"
@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/diwalkerdev/Aim"
 repository = "https://github.com/diwalkerdev/Aim"
 keywords = ["cpp", "build-tool", "poetry", "python", "linux", "windows", "macos"]
-include = ["LICENSE", "MANIFEST.in", "zipdemo.zip"]
+include = ["LICENSE", "MANIFEST.in", "src/aim_build/zipdemo.zip"]
 classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Environment :: Console",

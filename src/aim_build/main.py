@@ -122,7 +122,7 @@ def entry():
         else:
             relative_dir = "demo/Empty"
 
-        zip_path = script_path / f"../../{DEMO_ZIP_FILE_NAME}"
+        zip_path = script_path / f"{DEMO_ZIP_FILE_NAME}"
 
         assert zip_path.exists(), f"Failed to find demo zip files: {str(zip_path)}"
         zip_file = zipfile.ZipFile(str(zip_path))
