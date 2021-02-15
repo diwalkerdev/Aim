@@ -74,10 +74,7 @@ def run_ninja_generation(parsed_toml, project_dir: Path, build_dir: Path):
 
 def entry():
     # print("DEV")
-
     script_path = Path(__file__).parent
-    print(str(script_path))
-    assert((script_path / "../../demo/Calculator/builds/linux-clang++-debug/target.toml").exists())
 
     # TODO: Get version automatically from the pyproject.toml file.
     parser = argparse.ArgumentParser(description=f"Version {__version__}")
