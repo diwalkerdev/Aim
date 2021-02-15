@@ -1,0 +1,37 @@
+projectRoot = "../../"
+compiler = "clang-cl"
+ar = "llvm-ar"
+compilerFrontend="msvc"
+
+flags = [
+    "/std:c++17",
+    "/Zi",
+]
+
+[[builds]]                              
+    name = "libraryname"
+    buildRule = "staticlib" # or dynamiclib
+    outputName = "LibraryName"
+    srcDirs = ["lib"]
+    includePaths = ["include"]
+
+[[builds]]
+    name = "tests"
+    buildRule = "exe"
+    requires = ["libraryname"]
+    outputName = "Tests"
+    srcDirs = ["tests"]
+    includePaths = ["include"]
+    # The libraryPaths and libraries fields can be used to specify additional
+    # libraries and paths to the build. This allows for linking against third 
+    # party libraries.
+    #libraryPaths = [] 
+    #libraries = [] 
+
+[[builds]]
+    name = "application"
+    buildRule = "exe"
+    requires = ["libraryname"]
+    outputName = "Applicatoin"
+    srcDirs = ["src"]
+    includePaths = ["include"]

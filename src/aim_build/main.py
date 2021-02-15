@@ -4,6 +4,7 @@ import sys
 import zipfile
 from typing import Optional
 import toml
+from aim_build.common import DEMO_ZIP_FILE_NAME
 from aim_build import gccbuilds
 from aim_build import msvcbuilds
 from aim_build import osxbuilds
@@ -115,17 +116,21 @@ def entry():
     build_parser.add_argument(
         "--target", type=str, required=True, help="path to target file directory"
     )
-    from aim_build.common import DEMO_ZIP_FILE_NAME
     args = parser.parse_args()
     mode = args.command
     if mode == "init":
-        zip_file = None
-        zip_path = script_path / f"../../{DEMO_ZIP_FILE_NAME}"
         if args.demofiles:
-            assert zip_path.exists(), f"Failed to find demo zip files: {str(zip_path)}"
-            zip_file = zipfile.ZipFile(str(zip_path))
+            print("Initialising from demo project...")
+            relative_dir = "demo/Calculator"
+        else:
+            relative_dir = "demo/Empty"
 
-        run_init(zip_file)
+        zip_path = script_path / f"../../{DEMO_ZIP_FILE_NAME}"
+
+        assert zip_path.exists(), f"Failed to find demo zip files: {str(zip_path)}"
+        zip_file = zipfile.ZipFile(str(zip_path))
+
+        run_init(zip_file, relative_dir)
     elif mode == "build":
         run_build(args.build, args.target, args.skip_ninja_regen)
     elif mode == "list":
@@ -138,7 +143,7 @@ def entry():
         parser.print_help(sys.stdout)
 
 
-def run_init(demo_zip: Optional[zipfile.ZipFile]):
+def run_init(demo_zip: zipfile.ZipFile, subdir_name):
     project_dir = Path().cwd()
     dirs = ["include", "src", "lib", "tests", "builds"]
     dirs = [project_dir / x for x in dirs]
@@ -151,26 +156,20 @@ def run_init(demo_zip: Optional[zipfile.ZipFile]):
         print("Initialising from demo project...")
         for file_name in demo_zip.namelist():
             file_name = Path(file_name)
+            if not str(file_name).startswith(subdir_name):
+                continue
+
             with demo_zip.open(str(file_name)) as the_file:
-                relative_path = file_name.relative_to("demo/Calculator")
-                print(str(relative_path))
+                relative_path = file_name.relative_to(subdir_name)
+                sys.stdout.write(f"\tCreating {str(relative_path)} ...")
                 if relative_path.exists():
-                    print(f"{str(relative_path)} already exists.")
+                    print("warning, file already exists.")
                     continue
+                print("okay")
 
                 relative_path.parent.mkdir(parents=True, exist_ok=True)
                 relative_path.touch()
                 relative_path.write_bytes(the_file.read())
-    else:
-        print("Creating common build targets...")
-        build_dir = project_dir / "builds"
-        target_files = ["windows-clangcl-debug", "windows-clangcl-release", "linux-clang++-debug",
-                        "linux-clang++-release"]
-        for target in target_files:
-            the_file = build_dir / target / "target.toml"
-            the_file.parent.mkdir(parents=True, exist_ok=True)
-            the_file.touch(exist_ok=True)
-            print(f"\t{str(the_file)}")
 
 
 def run_build(build_name, target_path, skip_ninja_regen):

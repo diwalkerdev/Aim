@@ -15,36 +15,29 @@ flags = [
 ]
 
 [[builds]]                              
-    name = "calculatorstatic"
-    buildRule = "staticlib"
-    outputName = "CalculatorStatic"
+    name = "libraryname"
+    buildRule = "staticlib" # or dynamiclib
+    outputName = "LibraryName"
     srcDirs = ["lib"]
     includePaths = ["include"]
 
 [[builds]]
-    name = "calculatordynamic"
-    buildRule = "dynamiclib"
-    outputName = "CalculatorShared"
-    srcDirs = ["lib"]
-    includePaths = ["include"]
-
-[[builds]]
-    name = "calculatortests"
+    name = "tests"
     buildRule = "exe"
-    requires = ["calculatorstatic"]
-    outputName = "CalculatorTests"
+    requires = ["libraryname"]
+    outputName = "Tests"
     srcDirs = ["tests"]
     includePaths = ["include"]
     # The libraryPaths and libraries fields can be used to specify additional
-    # libraries and paths to the build. This allows for linking against third
+    # libraries and paths to the build. This allows for linking against third 
     # party libraries.
-    #libraryPaths = []
-    #libraries = []
+    #libraryPaths = [] 
+    #libraries = [] 
 
 [[builds]]
-    name = "calculatorapp"
+    name = "application"
     buildRule = "exe"
-    requires = ["calculatordynamic"]
-    outputName = "CalculatorApp"
+    requires = ["libraryname"]
+    outputName = "Applicatoin"
     srcDirs = ["src"]
     includePaths = ["include"]
