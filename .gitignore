@@ -298,4 +298,3 @@ fabric.properties
 
 compile_commands.json
 *.ninja
-*.zip

@@ -25,10 +25,15 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        sudo apt-get install ninja-build
         python -m pip install --upgrade pip
         curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
         source $HOME/.poetry/env
         poetry install
+    - name: Run Prerelease script
+      run: |
+        source $HOME/.poetry/env
+        ./prerelease-linux.bash
     - name: Lint with pylint
       run: |
         PYTHONPATH=$PWD/src $HOME/.poetry/bin/poetry run pylint --rcfile=.pylintrc src/aim_build || $HOME/.poetry/bin/poetry run pylint-exit $? -efail

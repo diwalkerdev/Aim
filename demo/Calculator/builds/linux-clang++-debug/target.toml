@@ -5,7 +5,7 @@ ar = "ar"
 compilerFrontend="gcc"
 
 flags = [
-    "-std=c++20",
+    "-std=c++17",
     "-O3",
     "-g",
     "-fsanitize=address",
