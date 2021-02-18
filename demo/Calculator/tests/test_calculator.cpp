@@ -9,6 +9,6 @@ void test_calculator() {
 
 int main() {
   test_calculator();
-  printf("Calculator Tests Complete.");
+  printf("Calculator Tests Complete.\n");
   return 0;
 }

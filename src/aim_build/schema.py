@@ -41,6 +41,16 @@ class RequiresExistChecker:
                 error(field, f"{value} does not match any build name. Check spelling.")
 
 
+class AbsProjectDirPathChecker:
+    def check(self, field, paths, error):
+        paths = [ Path(the_path).resolve() for the_path in paths]
+
+        for directory in paths:
+            # Remember paths can now be directories or specific paths to files.
+            if not directory.exists():
+                error(field, f"{str(directory)} does not exist.")
+                break
+
 class RelProjectDirPathChecker:
     def __init__(self, project_dir):
         self.project_dir = project_dir
@@ -98,6 +108,7 @@ def target_schema(document, project_dir):
     unique_name_checker = UniqueNameChecker()
     requires_exist_checker = RequiresExistChecker(document)
     path_checker = RelProjectDirPathChecker(project_dir)
+    abs_path_checker = AbsProjectDirPathChecker()
     defines_checker = DefinesPrefixChecker()
 
     schema = {
@@ -161,6 +172,18 @@ def target_schema(document, project_dir):
                         "check_with": path_checker.check,
                     },
                     "includePaths": {
+                        "type": "list",
+                        "empty": False,
+                        "schema": {"type": "string"},
+                        "check_with": path_checker.check,
+                    },
+                    "systemIncludePaths": {
+                        "type": "list",
+                        "empty": False,
+                        "schema": {"type": "string"},
+                        "check_with": abs_path_checker.check,
+                    },
+                    "localIncludePaths": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},

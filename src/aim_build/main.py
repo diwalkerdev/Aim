@@ -36,12 +36,13 @@ def run_ninja(working_dir, build_name):
         sys.stderr.write(line.decode("utf-8"))
 
 
-def run_ninja_generation(parsed_toml, project_dir: Path, build_dir: Path):
+def run_ninja_generation(parsed_toml, project_dir: Path, build_dir: Path, args:List[str]):
     compiler = parsed_toml["compiler"]
     archiver = parsed_toml["ar"]
     frontend = parsed_toml["compilerFrontend"]
 
     flags = parsed_toml.get("flags", [])
+    flags = args + flags
     defines = parsed_toml.get("defines", [])
     builds = parsed_toml["builds"]
 
@@ -77,7 +78,7 @@ def entry():
     script_path = Path(__file__).parent
 
     # TODO: Get version automatically from the pyproject.toml file.
-    parser = argparse.ArgumentParser(description=f"Version {__version__}")
+    parser = argparse.ArgumentParser(prog="aim", description=f"Version {__version__}")
 
     parser.add_argument("-v", "--version", action="version", version=__version__)
     sub_parser = parser.add_subparsers(dest="command", help="Commands")
@@ -91,20 +92,34 @@ def entry():
 
     init_parser = sub_parser.add_parser("init", help="creates a project structure")
     init_parser.add_argument(
-        "--demofiles", help="Create additional demo files", action="store_true"
+        "--demo-files",
+        help="create additional demo files",
+        action="store_true"
     )
 
     build_parser = sub_parser.add_parser("build", help="executes a build")
-    build_parser.add_argument("build", type=str, help="The build name")
+    build_parser.add_argument("build", type=str, help="the build name")
 
     build_parser.add_argument(
         "--target", type=str, required=True, help="path to target file directory"
     )
 
     build_parser.add_argument(
-        "--skip_ninja_regen",
+        "--skip-ninja-regen",
         help="by-pass the ninja file generation step",
         action="store_true",
+    )
+
+    build_parser.add_argument(
+        "--profile-build",
+        help="forwards the ftime-trace to the compiler for emitting build profile information. View using chome://tracing.",
+        action="store_true",
+    )
+
+    build_parser.add_argument(
+       "--args",
+        help="additional arguments forwarded to the compiler",
+        nargs="*"
     )
 
     build_parser = sub_parser.add_parser(
@@ -116,7 +131,7 @@ def entry():
     args = parser.parse_args()
     mode = args.command
     if mode == "init":
-        if args.demofiles:
+        if args.demo_files:
             print("Initialising from demo project...")
             relative_dir = "demo/Calculator"
         else:
@@ -129,7 +144,10 @@ def entry():
 
         run_init(zip_file, relative_dir)
     elif mode == "build":
-        run_build(args.build, args.target, args.skip_ninja_regen)
+        forwarding_args = [] if args.args is None else args.args
+        if args.profile_build and "-ftime-trace" not in forwarding_args:
+                forwarding_args.append("-ftime-trace")
+        run_build(args.build, args.target, args.skip_ninja_regen, forwarding_args)
     elif mode == "list":
         run_list(args.target)
     elif mode == "clobber":
@@ -169,7 +187,7 @@ def run_init(demo_zip: zipfile.ZipFile, subdir_name):
                 relative_path.write_bytes(the_file.read())
 
 
-def run_build(build_name, target_path, skip_ninja_regen):
+def run_build(build_name, target_path, skip_ninja_regen, args):
     print("Running build...")
     build_dir = Path().cwd()
 
@@ -200,7 +218,7 @@ def run_build(build_name, target_path, skip_ninja_regen):
 
         if not skip_ninja_regen:
             print("Generating ninja files...")
-            run_ninja_generation(parsed_toml, project_dir, build_dir)
+            run_ninja_generation(parsed_toml, project_dir, build_dir, args)
             with (build_dir.resolve() / "compile_commands.json").open("w+") as cc:
                 command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
                 subprocess.run(command, stdout=cc)

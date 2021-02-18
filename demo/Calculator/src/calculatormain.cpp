@@ -8,7 +8,7 @@ int main()
 
     auto result = add(x, y);
 
-    printf("%d + %d = %d", x, y, result);
+    printf("%d + %d = %d\n", x, y, result);
 
     return 0;
 }

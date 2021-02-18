@@ -4,6 +4,8 @@ from aim_build.gccbuildrules import *
 from aim_build.utils import *
 
 PrefixIncludePath = functools.partial(prefix, "-I")
+PrefixSystemIncludePath = functools.partial(prefix, "-isystem")
+PrefixQuoteIncludePath = functools.partial(prefix, "-iquote")
 PrefixLibraryPath = functools.partial(prefix, "-L")
 PrefixLibrary = functools.partial(prefix, "-l")
 PrefixHashDefine = functools.partial(prefix, "-D")
@@ -33,6 +35,18 @@ def get_include_paths(build):
     includes = prepend_paths(directory, include_paths)
     includes = PrefixIncludePath(includes)
     return includes
+
+def get_quote_include_paths(build):
+    directory = build["directory"]
+    include_paths = build.get("localIncludePaths", [])
+    includes = prepend_paths(directory, include_paths)
+    includes = PrefixQuoteIncludePath(includes)
+    return includes
+
+def get_system_include_paths(build):
+    system_include_paths = build.get("systemIncludePaths", [])
+    system_includes = PrefixSystemIncludePath(system_include_paths)
+    return system_includes
 
 
 def get_library_paths(build):
@@ -113,13 +127,15 @@ class GCCBuilds:
 
         cxxflags = local_flags if local_flags else build["global_flags"]
         if extra_flags:
-            cxxflags = cxxflags + extra_flags
+            cxxflags = extra_flags + cxxflags
         defines = local_defines if local_defines else build["global_defines"]
         defines = PrefixHashDefine(defines)
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
         src_files = get_src_files(build)
         includes = get_include_paths(build)
+        includes += get_system_include_paths(build)
+        includes += get_quote_include_paths(build)
         includes += self.get_required_include_information(build, parsed_toml)
 
         # Its very important to specify the absolute path to the obj files.
@@ -165,6 +181,8 @@ class GCCBuilds:
         build_path = build["buildPath"]
 
         includes = get_include_paths(build)
+        includes += get_system_include_paths(build)
+        includes += get_quote_include_paths(build)
         includes += self.get_required_include_information(build, parsed_toml)
 
         obj_files = self.add_compile_rule(cfw, build, parsed_toml)
@@ -210,6 +228,8 @@ class GCCBuilds:
         build_path = build["buildPath"]
 
         includes = get_include_paths(build)
+        includes += get_system_include_paths(build)
+        includes += get_quote_include_paths(build)
         includes += self.get_required_include_information(build, parsed_toml)
 
         library_paths = get_library_paths(build)
@@ -291,6 +311,8 @@ class GCCBuilds:
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
         includes = get_include_paths(build)
+        includes += get_system_include_paths(build)
+        includes += get_quote_include_paths(build)
         includes += self.get_required_include_information(build, parsed_toml)
 
         library_paths = get_library_paths(build)
@@ -381,14 +403,27 @@ class GCCBuilds:
             return []
 
         include_paths = []
+        system_include_paths = []
+        quote_include_paths = []
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
             directory = build["directory"]
+
             includes = the_dep.get("includePaths", [])
             includes = prepend_paths(directory, includes)
             include_paths += includes
 
-        return PrefixIncludePath(include_paths)
+            quote_includes = the_dep.get("localIncludePaths", [])
+            quote_includes = prepend_paths(directory, quote_includes)
+            quote_include_paths += quote_includes
+
+            system_includes = the_dep.get("systemIncludePaths", [])
+            system_include_paths += system_include_paths
+
+        include_args = PrefixIncludePath(include_paths)
+        system_include_args = PrefixSystemIncludePath(system_include_paths)
+        quote_args = PrefixQuoteIncludePath(quote_include_paths)
+        return include_args + system_include_args + quote_args
 
     def get_rpath(self, build: Dict, parsed_toml: Dict):
         # Good blog post about rpath:
