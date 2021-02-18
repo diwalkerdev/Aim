@@ -43,9 +43,13 @@ class RequiresExistChecker:
 
 class AbsProjectDirPathChecker:
     def check(self, field, paths, error):
-        paths = [ Path(the_path).resolve() for the_path in paths]
+        paths = [ Path(the_path) for the_path in paths]
 
         for directory in paths:
+            if not directory.is_absolute():
+                error(field, f"{str(directory)} should be an absolute path.")
+                break
+
             # Remember paths can now be directories or specific paths to files.
             if not directory.exists():
                 error(field, f"{str(directory)} does not exist.")
