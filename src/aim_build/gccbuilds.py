@@ -1,7 +1,7 @@
 import functools
 from typing import Dict
-from aim_build.gccbuildrules import *
 from aim_build.utils import *
+from ninja_syntax import Writer
 
 PrefixIncludePath = functools.partial(prefix, "-I")
 PrefixSystemIncludePath = functools.partial(prefix, "-isystem")
@@ -71,56 +71,56 @@ def find_build(build_name, builds):
 
 
 class GCCBuilds:
-    def add_rules(self, build):
-        directory = build["build_dir"]
-        ninja_path = directory / "rules.ninja"
-        with ninja_path.open("w+") as ninja_file:
-            writer = Writer(ninja_file)
-            add_compile(writer)
-            add_ar(writer)
-            add_exe(writer)
-            add_shared(writer)
+    # def add_rules(self, build):
+    #     directory = build["build_dir"]
+    #     ninja_path = directory / "rules.ninja"
+    #     with ninja_path.open("w+") as ninja_file:
+    #         writer = Writer(ninja_file)
+    #         add_compile(writer)
+    #         add_ar(writer)
+    #         add_exe(writer)
+    #         add_shared(writer)
 
     def build(self, build, parsed_toml, project_writer: Writer):
-        the_build = build["buildRule"]
 
         build_name = build["name"]
+        the_build = build["buildRule"]
         project_dir = build["directory"]
         build_dir = build["build_dir"]
 
         build_path = build_dir / build_name
         build_path.mkdir(parents=True, exist_ok=True)
 
-        ninja_path = build_path / "build.ninja"
-        ncompile_path = build_path / "compile.ninja"
+        # ninja_path = build_path / "build.ninja"
+        # ncompile_path = build_path / "compile.ninja"
         build["buildPath"] = build_path
 
-        self.add_rules(build)
+        # self.add_rules(build)
 
-        with ninja_path.open("w+") as ninja_file:
-            with ncompile_path.open("w+") as compile_file:
-                ninja_writer = Writer(ninja_file)
-                compile_writer = Writer(compile_file)
-                rule_path = (build_dir / "rules.ninja").resolve()
-                ninja_writer.include(escape_path(str(rule_path)))
-                ninja_writer.newline()
+        # with ninja_path.open("w+") as ninja_file:
+            # with ncompile_path.open("w+") as compile_file:
+        # ninja_writer = Writer(ninja_file)
+        # compile_writer = Writer(compile_file)
+        # rule_path = (build_dir / "rules.ninja").resolve()
+        # ninja_writer.include(escape_path(str(rule_path)))
+        # ninja_writer.newline()
 
-                if the_build == "staticlib":
-                    self.build_static_library(
-                        ninja_writer, compile_writer, project_writer, build, parsed_toml
-                    )
-                elif the_build == "exe":
-                    self.build_executable(
-                        ninja_writer, compile_writer, project_writer, build, parsed_toml
-                    )
-                elif the_build == "dynamiclib":
-                    self.build_dynamic_library(
-                        ninja_writer, compile_writer, project_writer, build, parsed_toml
-                    )
-                else:
-                    raise RuntimeError(f"Unknown build type {the_build}.")
+        if the_build == "staticlib":
+            self.build_static_library(
+                project_writer, build, parsed_toml
+            )
+        elif the_build == "exe":
+            self.build_executable(
+                project_writer, build, parsed_toml
+            )
+        elif the_build == "dynamiclib":
+            self.build_dynamic_library(
+                project_writer, build, parsed_toml
+            )
+        else:
+            raise RuntimeError(f"Unknown build type {the_build}.")
 
-    def add_compile_rule(self, nfw: Writer, build: Dict, parsed_toml, extra_flags: StringList = None):
+    def add_compile_rule(self, pfw: Writer, build: Dict, parsed_toml, extra_flags: StringList = None):
         local_flags = build.get("flags", None)
         local_defines = build.get("defines", None)
         local_compiler = build.get("compiler", None)
@@ -148,7 +148,7 @@ class GCCBuilds:
 
         file_pairs = zip(to_str(src_files), to_str(obj_files))
         for src_file, obj_file in file_pairs:
-            nfw.build(
+            pfw.build(
                 outputs=obj_file,
                 rule="compile",
                 inputs=src_file,
@@ -159,13 +159,11 @@ class GCCBuilds:
                     "defines": defines,
                 },
             )
-            nfw.newline()
+            pfw.newline()
 
         return obj_files
 
-    def build_static_library(
-        self, nfw: Writer, cfw: Writer, pfw: Writer, build: Dict, parsed_toml: Dict
-    ):
+    def build_static_library(self, pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
         library_name = self.add_static_library_naming_convention(build["outputName"])
 
@@ -185,13 +183,13 @@ class GCCBuilds:
         includes += get_quote_include_paths(build)
         includes += self.get_required_include_information(build, parsed_toml)
 
-        obj_files = self.add_compile_rule(cfw, build, parsed_toml)
+        obj_files = self.add_compile_rule(pfw, build, parsed_toml)
 
         relative_output_name = str(build_path / library_name)
 
-        pfw.subninja(str((Path(build_path) / "build.ninja").resolve()))
+        # pfw.subninja(str((Path(build_path) / "build.ninja").resolve()))
 
-        nfw.build(
+        pfw.build(
             outputs=relative_output_name,
             rule="archive",
             inputs=to_str(obj_files),
@@ -202,16 +200,14 @@ class GCCBuilds:
                 "defines": defines,
             },
         )
-        nfw.newline()
-        nfw.include(str((build_path / "compile.ninja").resolve()))
+        pfw.newline()
+        # pfw.include(str((build_path / "compile.ninja").resolve()))
 
-        nfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
-        nfw.build(rule="phony", inputs=library_name, outputs=build_name)
-        nfw.newline()
+        pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
+        pfw.build(rule="phony", inputs=library_name, outputs=build_name)
+        pfw.newline()
 
-    def build_executable(
-        self, nfw: Writer, cfw: Writer, pfw: Writer, build: Dict, parsed_toml: Dict
-    ):
+    def build_executable(self, pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
         exe_name = self.add_exe_naming_convention(build["outputName"])
 
@@ -250,13 +246,13 @@ class GCCBuilds:
             + link_libraries
         )
 
-        for requirement in requires:
-            ninja_file = (build_path.parent / requirement / "build.ninja").resolve()
-            assert ninja_file.exists(), f"Failed to find {str(ninja_file)}."
-            nfw.subninja(escape_path(str(ninja_file)))
-            nfw.newline()
+        # for requirement in requires:
+        #     ninja_file = (build_path.parent / requirement / "build.ninja").resolve()
+        #     assert ninja_file.exists(), f"Failed to find {str(ninja_file)}."
+        #     pfw.subninja(escape_path(str(ninja_file)))
+        #     pfw.newline()
 
-        obj_files = self.add_compile_rule(cfw, build, parsed_toml)
+        obj_files = self.add_compile_rule(pfw, build, parsed_toml)
 
         # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
         # lib .a/.so but the build dependency rule does need the full convention to find the build rule in the library's
@@ -272,10 +268,10 @@ class GCCBuilds:
                     self.add_dynamic_library_naming_convention(name)
                 )
 
-        pfw.include(str((Path(build_path) / "compile.ninja").resolve()))
-
-        nfw.build(
-            outputs=exe_name,
+        # pfw.include(str((Path(build_path) / "compile.ninja").resolve()))
+        relative_output_name = str(build_path / exe_name)
+        pfw.build(
+            outputs=relative_output_name,
             rule="exe",
             inputs=to_str(obj_files),
             implicit=full_library_names,
@@ -284,21 +280,16 @@ class GCCBuilds:
                 "includes": includes,
                 "flags": cxxflags,
                 "defines": defines,
-                # TODO: what does exe_name do?
-                "exe_name": exe_name,
                 "linker_args": " ".join(linker_args),
             },
         )
-        nfw.newline()
-        nfw.include(str((build_path / "compile.ninja").resolve()))
+        pfw.newline()
+        pfw.build(rule="phony", inputs=relative_output_name, outputs=exe_name)
+        pfw.newline()
+        pfw.build(rule="phony", inputs=exe_name, outputs=build_name)
+        pfw.newline()
 
-        nfw.newline()
-        nfw.build(rule="phony", inputs=exe_name, outputs=build_name)
-        nfw.newline()
-
-    def build_dynamic_library(
-        self, nfw: Writer, cfw: Writer, pfw: Writer, build: Dict, parsed_toml: Dict
-    ):
+    def build_dynamic_library(self, pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
         library_name = self.add_dynamic_library_naming_convention(build["outputName"])
 
@@ -332,14 +323,22 @@ class GCCBuilds:
             + link_libraries
         )
 
+        requires = build.get("requires", [])
+        build_path = build["buildPath"]
+        # for requirement in requires:
+        #     ninja_file = (build_path.parent / requirement / "build.ninja").resolve()
+        #     assert ninja_file.exists(), f"Failed to find {str(ninja_file)}."
+        #     pfw.subninja(escape_path(str(ninja_file)))
+        #     pfw.newline()
+
         extra_flags = ["-DEXPORT_DLL_PUBLIC",
                        "-fvisibility=hidden",
                       "-fPIC"]
-        obj_files = self.add_compile_rule(cfw, build, parsed_toml, extra_flags)
+        obj_files = self.add_compile_rule(pfw, build, parsed_toml, extra_flags)
 
         build_path = build["buildPath"]
 
-        pfw.subninja(str((Path(build_path) / "build.ninja").resolve()))
+        # pfw.subninja(str((Path(build_path) / "build.ninja").resolve()))
 
         relative_output_name = str(build_path / library_name)
 
@@ -357,7 +356,9 @@ class GCCBuilds:
                     self.add_dynamic_library_naming_convention(name)
                 )
 
-        nfw.build(
+        # pfw.include(str((Path(build_path) / "compile.ninja").resolve()))
+
+        pfw.build(
             rule="shared",
             inputs=to_str(obj_files),
             implicit=full_library_names,
@@ -371,12 +372,11 @@ class GCCBuilds:
                 "linker_args": " ".join(linker_args),
             },
         )
-        nfw.newline()
-        nfw.include(str((build_path / "compile.ninja").resolve()))
-
-        nfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
-        nfw.build(rule="phony", inputs=library_name, outputs=build_name)
-        nfw.newline()
+        pfw.newline()
+        pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
+        pfw.newline()
+        pfw.build(rule="phony", inputs=library_name, outputs=build_name)
+        pfw.newline()
 
     def get_required_library_information(self, build, parsed_toml):
         requires = build.get("requires", [])

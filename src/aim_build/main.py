@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import sys
 import zipfile
+from ninja_syntax import Writer
 from typing import Optional
 import toml
 from aim_build.common import DEMO_ZIP_FILE_NAME
@@ -11,6 +12,7 @@ from aim_build import osxbuilds
 from aim_build.schema import target_schema
 from aim_build.utils import *
 from aim_build.version import __version__
+from aim_build.gccbuildrules import add_compile,add_ar,add_exe,add_shared
 
 
 def find_build(build_name, builds):
@@ -22,7 +24,7 @@ def find_build(build_name, builds):
 
 
 def run_ninja(working_dir, build_name):
-    command = ["ninja", "-v", f"-C{build_name}", build_name]
+    command = ["ninja", "-v", build_name]
     command_str = " ".join(command)
     print(f'Executing "{command_str}"')
 
@@ -48,10 +50,8 @@ def run_ninja_generation(parsed_toml, project_dir: Path, build_dir: Path, args:L
 
     project_ninja = build_dir / "build.ninja"
     with project_ninja.open("w+") as project_fd:
-        from ninja_syntax import Writer
-
         project_writer = Writer(project_fd)
-        project_writer.include(str(build_dir / "rules.ninja"))
+        # project_writer.include(str(build_dir / "rules.ninja"))
 
         for build_info in builds:
             print(f'Generating ninja file for {build_info["name"]}')
@@ -187,6 +187,50 @@ def run_init(demo_zip: zipfile.ZipFile, subdir_name):
                 relative_path.write_bytes(the_file.read())
 
 
+def generate_flat_ninja_file(build_name, parsed_toml, project_dir, build_dir,args):
+    compiler = parsed_toml["compiler"]
+    archiver = parsed_toml["ar"]
+    frontend = parsed_toml["compilerFrontend"]
+    flags = parsed_toml.get("flags", [])
+    flags = args + flags
+    defines = parsed_toml.get("defines", [])
+    project_ninja = build_dir / "build.ninja"
+
+    builds = parsed_toml["builds"]
+
+    with project_ninja.open("w+") as project_fd:
+        project_writer = Writer(project_fd)
+        # project_writer.include(str(build_dir / "rules.ninja"))
+        add_compile(project_writer)
+        add_ar(project_writer)
+        add_exe(project_writer)
+        add_shared(project_writer)
+
+        for build_info in builds:
+            current_build = build_info
+            current_build["directory"] = project_dir
+            current_build["build_dir"] = build_dir
+            current_build["global_flags"] = flags
+            current_build["global_defines"] = defines
+            current_build["global_compiler"] = compiler
+            current_build["global_archiver"] = archiver
+
+
+            if frontend == "msvc":
+                # builder = msvcbuilds.MSVCBuilds(compiler, compiler_c, archiver)
+                assert False, "MSVC frontend is currently not supported."
+            elif frontend == "osx":
+                builder = osxbuilds.OsxBuilds()
+            else:
+                builder = gccbuilds.GCCBuilds()
+
+            builder.build(build_info, parsed_toml, project_writer)
+
+            # requires = current_build.get("requires", [])
+            # for req in requires:
+            #     generate_flat_ninja_file_recursive(req, parsed_toml, project_dir, builder, project_writer, build_dir, args)
+
+
 def run_build(build_name, target_path, skip_ninja_regen, args):
     print("Running build...")
     build_dir = Path().cwd()
@@ -218,7 +262,7 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
 
         if not skip_ninja_regen:
             print("Generating ninja files...")
-            run_ninja_generation(parsed_toml, project_dir, build_dir, args)
+            generate_flat_ninja_file(build_name, parsed_toml, project_dir, build_dir, args)
             with (build_dir.resolve() / "compile_commands.json").open("w+") as cc:
                 command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
                 subprocess.run(command, stdout=cc)
