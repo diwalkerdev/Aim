@@ -24,53 +24,18 @@ def find_build(build_name, builds):
 
 
 def run_ninja(working_dir, build_name):
-    command = ["ninja", "-v", build_name]
+    command = ["ninja", "-C", str(working_dir), "-v", build_name]
     command_str = " ".join(command)
-    print(f'Executing "{command_str}"')
+    # print(f'Executing "{command_str}"')
 
     process = subprocess.Popen(
-        command, cwd=str(working_dir), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
     for line in iter(process.stdout.readline, b""):
         sys.stdout.write(line.decode("utf-8"))
     for line in iter(process.stderr.readline, b""):
         sys.stderr.write(line.decode("utf-8"))
-
-
-def run_ninja_generation(parsed_toml, project_dir: Path, build_dir: Path, args:List[str]):
-    compiler = parsed_toml["compiler"]
-    archiver = parsed_toml["ar"]
-    frontend = parsed_toml["compilerFrontend"]
-
-    flags = parsed_toml.get("flags", [])
-    flags = args + flags
-    defines = parsed_toml.get("defines", [])
-    builds = parsed_toml["builds"]
-
-    project_ninja = build_dir / "build.ninja"
-    with project_ninja.open("w+") as project_fd:
-        project_writer = Writer(project_fd)
-        # project_writer.include(str(build_dir / "rules.ninja"))
-
-        for build_info in builds:
-            print(f'Generating ninja file for {build_info["name"]}')
-            build_info["directory"] = project_dir
-            build_info["build_dir"] = build_dir
-            build_info["global_flags"] = flags
-            build_info["global_defines"] = defines
-            build_info["global_compiler"] = compiler
-            build_info["global_archiver"] = archiver
-
-            if frontend == "msvc":
-                # builder = msvcbuilds.MSVCBuilds(compiler, compiler_c, archiver)
-                assert False, "MSVC frontend is currently not supported."
-            elif frontend == "osx":
-                builder = osxbuilds.OsxBuilds()
-            else:
-                builder = gccbuilds.GCCBuilds()
-
-            builder.build(build_info, parsed_toml, project_writer)
 
 
 def entry():
@@ -226,14 +191,11 @@ def generate_flat_ninja_file(build_name, parsed_toml, project_dir, build_dir,arg
 
             builder.build(build_info, parsed_toml, project_writer)
 
-            # requires = current_build.get("requires", [])
-            # for req in requires:
-            #     generate_flat_ninja_file_recursive(req, parsed_toml, project_dir, builder, project_writer, build_dir, args)
-
 
 def run_build(build_name, target_path, skip_ninja_regen, args):
     print("Running build...")
-    build_dir = Path().cwd()
+    # build_dir = Path().cwd()
+    build_dir = Path()
 
     if target_path:
         target_path = Path(target_path)
@@ -242,7 +204,6 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
         else:
             build_dir = build_dir / Path(target_path)
 
-    # ninja_path = project_dir / "build.ninja"
     toml_path = build_dir / "target.toml"
 
     with toml_path.open("r") as toml_file:
@@ -251,7 +212,7 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
         builds = parsed_toml["builds"]
         the_build = find_build(build_name, builds)
         root_dir = parsed_toml["projectRoot"]
-        project_dir = (build_dir / root_dir).resolve()
+        project_dir = (build_dir / root_dir)
         assert project_dir.exists(), f"{str(project_dir)} does not exist."
 
         try:

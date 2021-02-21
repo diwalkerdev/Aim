@@ -26,20 +26,26 @@ def get_src_files(build):
 
     src_files += explicit_src_files
     assert src_files, f"Fail to find any source files in {to_str(src_dirs)}."
+    build_path = build["buildPath"] / ".."
+    src_files = relpaths(src_files, build_path)
     return src_files
 
 
 def get_include_paths(build):
-    directory = build["directory"]
+    directory = build["buildPath"] / ".."
     include_paths = build.get("includePaths", [])
-    includes = prepend_paths(directory, include_paths)
-    includes = PrefixIncludePath(includes)
+    include_paths = [Path(p) for p in include_paths]
+    abs_paths = [p for p in include_paths if p.is_absolute()]
+    rel_paths = [p for p in include_paths if not p.is_absolute()]
+    rel_paths = relpaths(rel_paths, directory)
+
+    includes = PrefixIncludePath(abs_paths) + PrefixIncludePath(rel_paths)
     return includes
 
 def get_quote_include_paths(build):
-    directory = build["directory"]
+    directory = build["buildPath"] / ".."
     include_paths = build.get("localIncludePaths", [])
-    includes = prepend_paths(directory, include_paths)
+    includes = relpaths(include_paths, directory)
     includes = PrefixQuoteIncludePath(includes)
     return includes
 
@@ -71,18 +77,7 @@ def find_build(build_name, builds):
 
 
 class GCCBuilds:
-    # def add_rules(self, build):
-    #     directory = build["build_dir"]
-    #     ninja_path = directory / "rules.ninja"
-    #     with ninja_path.open("w+") as ninja_file:
-    #         writer = Writer(ninja_file)
-    #         add_compile(writer)
-    #         add_ar(writer)
-    #         add_exe(writer)
-    #         add_shared(writer)
-
     def build(self, build, parsed_toml, project_writer: Writer):
-
         build_name = build["name"]
         the_build = build["buildRule"]
         project_dir = build["directory"]
@@ -91,19 +86,7 @@ class GCCBuilds:
         build_path = build_dir / build_name
         build_path.mkdir(parents=True, exist_ok=True)
 
-        # ninja_path = build_path / "build.ninja"
-        # ncompile_path = build_path / "compile.ninja"
         build["buildPath"] = build_path
-
-        # self.add_rules(build)
-
-        # with ninja_path.open("w+") as ninja_file:
-            # with ncompile_path.open("w+") as compile_file:
-        # ninja_writer = Writer(ninja_file)
-        # compile_writer = Writer(compile_file)
-        # rule_path = (build_dir / "rules.ninja").resolve()
-        # ninja_writer.include(escape_path(str(rule_path)))
-        # ninja_writer.newline()
 
         if the_build == "staticlib":
             self.build_static_library(
@@ -125,6 +108,9 @@ class GCCBuilds:
         local_defines = build.get("defines", None)
         local_compiler = build.get("compiler", None)
 
+        build_name = build["name"]
+        build_path = build["buildPath"]
+
         cxxflags = local_flags if local_flags else build["global_flags"]
         if extra_flags:
             cxxflags = extra_flags + cxxflags
@@ -138,13 +124,9 @@ class GCCBuilds:
         includes += get_quote_include_paths(build)
         includes += self.get_required_include_information(build, parsed_toml)
 
-        # Its very important to specify the absolute path to the obj files.
-        # This prevents recompilation of files when an exe links against a library.
-        # Without the absolute path to the obj files, it would build the files again
-        # in the current (exe's) build location.
         build_path = build["buildPath"]
         obj_files = ToObjectFiles(src_files)
-        obj_files = prepend_paths(build_path, obj_files)
+        obj_files = prepend_paths(Path(build_name), obj_files)
 
         file_pairs = zip(to_str(src_files), to_str(obj_files))
         for src_file, obj_file in file_pairs:
@@ -185,9 +167,7 @@ class GCCBuilds:
 
         obj_files = self.add_compile_rule(pfw, build, parsed_toml)
 
-        relative_output_name = str(build_path / library_name)
-
-        # pfw.subninja(str((Path(build_path) / "build.ninja").resolve()))
+        relative_output_name = str(Path(build_name) / library_name)
 
         pfw.build(
             outputs=relative_output_name,
@@ -200,10 +180,10 @@ class GCCBuilds:
                 "defines": defines,
             },
         )
-        pfw.newline()
-        # pfw.include(str((build_path / "compile.ninja").resolve()))
 
+        pfw.newline()
         pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
+        pfw.newline()
         pfw.build(rule="phony", inputs=library_name, outputs=build_name)
         pfw.newline()
 
@@ -246,12 +226,6 @@ class GCCBuilds:
             + link_libraries
         )
 
-        # for requirement in requires:
-        #     ninja_file = (build_path.parent / requirement / "build.ninja").resolve()
-        #     assert ninja_file.exists(), f"Failed to find {str(ninja_file)}."
-        #     pfw.subninja(escape_path(str(ninja_file)))
-        #     pfw.newline()
-
         obj_files = self.add_compile_rule(pfw, build, parsed_toml)
 
         # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
@@ -268,8 +242,7 @@ class GCCBuilds:
                     self.add_dynamic_library_naming_convention(name)
                 )
 
-        # pfw.include(str((Path(build_path) / "compile.ninja").resolve()))
-        relative_output_name = str(build_path / exe_name)
+        relative_output_name = str(Path(build_name) / exe_name)
         pfw.build(
             outputs=relative_output_name,
             rule="exe",
@@ -325,11 +298,6 @@ class GCCBuilds:
 
         requires = build.get("requires", [])
         build_path = build["buildPath"]
-        # for requirement in requires:
-        #     ninja_file = (build_path.parent / requirement / "build.ninja").resolve()
-        #     assert ninja_file.exists(), f"Failed to find {str(ninja_file)}."
-        #     pfw.subninja(escape_path(str(ninja_file)))
-        #     pfw.newline()
 
         extra_flags = ["-DEXPORT_DLL_PUBLIC",
                        "-fvisibility=hidden",
@@ -338,9 +306,7 @@ class GCCBuilds:
 
         build_path = build["buildPath"]
 
-        # pfw.subninja(str((Path(build_path) / "build.ninja").resolve()))
-
-        relative_output_name = str(build_path / library_name)
+        relative_output_name = str(Path(build_name) / library_name)
 
         # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
         # lib .a/.so but the build dependency rule does need the full convention to find the build rule in the library's
@@ -355,8 +321,6 @@ class GCCBuilds:
                 full_library_names.append(
                     self.add_dynamic_library_naming_convention(name)
                 )
-
-        # pfw.include(str((Path(build_path) / "compile.ninja").resolve()))
 
         pfw.build(
             rule="shared",
@@ -393,7 +357,7 @@ class GCCBuilds:
             dep_name = the_dep["name"]
             library_paths.append(dep_name)
 
-        library_paths = prepend_paths(build["build_dir"], library_paths)
+        # library_paths = prepend_paths(build["build_dir"], library_paths)
         library_paths = PrefixLibraryPath(library_paths)
         return library_names, PrefixLibrary(library_names), library_paths, library_types
 
@@ -407,14 +371,14 @@ class GCCBuilds:
         quote_include_paths = []
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
-            directory = build["directory"]
+            directory = build["buildPath"] / ".."
 
             includes = the_dep.get("includePaths", [])
-            includes = prepend_paths(directory, includes)
+            includes = relpaths(includes, directory)
             include_paths += includes
 
             quote_includes = the_dep.get("localIncludePaths", [])
-            quote_includes = prepend_paths(directory, quote_includes)
+            quote_includes = relpaths(quote_includes, directory)
             quote_include_paths += quote_includes
 
             system_includes = the_dep.get("systemIncludePaths", [])
@@ -436,7 +400,7 @@ class GCCBuilds:
             if the_dep["buildRule"] == "dynamiclib":
                 library_paths.append(the_dep["name"])
 
-        build_dir = Path(build["build_dir"]).resolve()
+        build_dir = Path(build["build_dir"])
         current_build_dir = build_dir / build["name"]
         library_paths = prepend_paths(build_dir, library_paths)
         relative_paths = [

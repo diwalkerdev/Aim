@@ -45,7 +45,7 @@ def suffix(the_suffix, paths) -> StringList:
 def prepend_paths(base_path: Path, other_paths: Union[PathList, StringList]):
     # Don't need to check if `the_path` is absolute. If it is, the the result of `base_path / the_path` is just the
     # `the_path`. So it does the right thing, even though you might not expect it.
-    return resolve([base_path / the_path for the_path in other_paths])
+    return [base_path / the_path for the_path in other_paths]
 
 
 def resolve(paths: PathList):
@@ -58,3 +58,7 @@ def escape_path(word):
 
 def relpath(src_path: Path, dst_path: Path):
     return Path(os.path.relpath(str(src_path), str(dst_path)))
+
+
+def relpaths(src_paths: List[Path], dst_path: Path, ):
+    return [Path(os.path.relpath(str(src_path), str(dst_path))) for src_path in src_paths]
