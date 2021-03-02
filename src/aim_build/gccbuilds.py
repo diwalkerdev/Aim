@@ -119,10 +119,12 @@ class GCCBuilds:
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
         src_files = get_src_files(build)
-        includes = get_include_paths(build)
-        includes += get_system_include_paths(build)
-        includes += get_quote_include_paths(build)
-        includes += self.get_required_include_information(build, parsed_toml)
+        includes = set()
+        includes.update(get_include_paths(build))
+        includes.update(get_system_include_paths(build))
+        includes.update(get_quote_include_paths(build))
+        includes.update(self.get_required_include_information(build, parsed_toml))
+        includes = list(includes)
 
         build_path = build["buildPath"]
         obj_files = ToObjectFiles(src_files)
@@ -160,10 +162,12 @@ class GCCBuilds:
 
         build_path = build["buildPath"]
 
-        includes = get_include_paths(build)
-        includes += get_system_include_paths(build)
-        includes += get_quote_include_paths(build)
-        includes += self.get_required_include_information(build, parsed_toml)
+        includes = set()
+        includes.update(get_include_paths(build))
+        includes.update(get_system_include_paths(build))
+        includes.update(get_quote_include_paths(build))
+        includes.update(self.get_required_include_information(build, parsed_toml))
+        includes = list(includes)
 
         obj_files = self.add_compile_rule(pfw, build, parsed_toml)
 
@@ -183,7 +187,6 @@ class GCCBuilds:
 
         pfw.newline()
         pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
-        pfw.newline()
         pfw.build(rule="phony", inputs=library_name, outputs=build_name)
         pfw.newline()
 
@@ -203,10 +206,12 @@ class GCCBuilds:
         requires = build.get("requires", [])
         build_path = build["buildPath"]
 
-        includes = get_include_paths(build)
-        includes += get_system_include_paths(build)
-        includes += get_quote_include_paths(build)
-        includes += self.get_required_include_information(build, parsed_toml)
+        includes = set()
+        includes.update(get_include_paths(build))
+        includes.update(get_system_include_paths(build))
+        includes.update(get_quote_include_paths(build))
+        includes.update(self.get_required_include_information(build, parsed_toml))
+        includes = list(includes)
 
         library_paths = get_library_paths(build)
         (
@@ -258,7 +263,6 @@ class GCCBuilds:
         )
         pfw.newline()
         pfw.build(rule="phony", inputs=relative_output_name, outputs=exe_name)
-        pfw.newline()
         pfw.build(rule="phony", inputs=exe_name, outputs=build_name)
         pfw.newline()
 
@@ -274,10 +278,12 @@ class GCCBuilds:
         defines = local_defines if local_defines else build["global_defines"]
         compiler = local_compiler if local_compiler else build["global_compiler"]
 
-        includes = get_include_paths(build)
-        includes += get_system_include_paths(build)
-        includes += get_quote_include_paths(build)
-        includes += self.get_required_include_information(build, parsed_toml)
+        includes = set()
+        includes.update(get_include_paths(build))
+        includes.update(get_system_include_paths(build))
+        includes.update(get_quote_include_paths(build))
+        includes.update(self.get_required_include_information(build, parsed_toml))
+        includes = list(includes)
 
         library_paths = get_library_paths(build)
 
@@ -338,7 +344,6 @@ class GCCBuilds:
         )
         pfw.newline()
         pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
-        pfw.newline()
         pfw.build(rule="phony", inputs=library_name, outputs=build_name)
         pfw.newline()
 
@@ -352,37 +357,46 @@ class GCCBuilds:
         library_types = []
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
-            library_types.append(the_dep["buildRule"])
-            library_names.append(the_dep["outputName"])
-            dep_name = the_dep["name"]
-            library_paths.append(dep_name)
+            output_name = the_dep["outputName"]
+            if output_name not in library_names:
+                library_names += [output_name]
+                library_paths += [the_dep["name"]]
+                library_types += [the_dep["buildRule"]]
 
-        # library_paths = prepend_paths(build["build_dir"], library_paths)
         library_paths = PrefixLibraryPath(library_paths)
-        return library_names, PrefixLibrary(library_names), library_paths, library_types
+        prefixed_library_names = PrefixLibrary(library_names)
+        return library_names, prefixed_library_names, library_paths, library_types
 
     def get_required_include_information(self, build, parsed_toml):
         requires = build.get("requires", [])
         if not requires:
             return []
 
-        include_paths = []
-        system_include_paths = []
-        quote_include_paths = []
+        include_paths = set()
+        system_include_paths = set()
+        quote_include_paths = set()
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
             directory = build["buildPath"] / ".."
 
             includes = the_dep.get("includePaths", [])
-            includes = relpaths(includes, directory)
-            include_paths += includes
+            includes = [Path(p) for p in includes]
+            abs_paths = [p for p in includes if p.is_absolute()]
+            rel_paths = [p for p in includes if not p.is_absolute()]
+            rel_paths = relpaths(rel_paths, directory)
+            includes = abs_paths + rel_paths
+            include_paths.update(includes)
 
             quote_includes = the_dep.get("localIncludePaths", [])
             quote_includes = relpaths(quote_includes, directory)
-            quote_include_paths += quote_includes
+            quote_include_paths .update(quote_includes)
 
             system_includes = the_dep.get("systemIncludePaths", [])
-            system_include_paths += system_include_paths
+            system_include_paths .update(system_include_paths)
+
+        include_paths = list(include_paths)
+        system_include_paths = list(system_include_paths)
+        quote_include_paths = list(quote_include_paths)
 
         include_args = PrefixIncludePath(include_paths)
         system_include_args = PrefixSystemIncludePath(system_include_paths)
@@ -393,16 +407,16 @@ class GCCBuilds:
         # Good blog post about rpath:
         # https://medium.com/@nehckl0/creating-relocatable-linux-executables-by-setting-rpath-with-origin-45de573a2e98
         requires = build.get("requires", [])
-        library_paths = []
+        library_paths = set()
 
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
             if the_dep["buildRule"] == "dynamiclib":
-                library_paths.append(the_dep["name"])
+                library_paths.update([the_dep["name"]])
 
         build_dir = Path(build["build_dir"])
         current_build_dir = build_dir / build["name"]
-        library_paths = prepend_paths(build_dir, library_paths)
+        library_paths = prepend_paths(build_dir, list(library_paths))
         relative_paths = [
             relpath(Path(lib_path), current_build_dir) for lib_path in library_paths
         ]

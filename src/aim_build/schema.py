@@ -11,7 +11,7 @@ class UniqueNameChecker:
         if value in self.name_lookup:
             error(
                 field,
-                f"The name field must be unique. The name {value} has already been used.",
+                f"The build name must be unique. \"{value}\" has already been used.",
             )
         else:
             self.name_lookup.append(value)
@@ -38,7 +38,7 @@ class RequiresExistChecker:
                 if value == build["name"]:
                     break
             else:
-                error(field, f"{value} does not match any build name. Check spelling.")
+                error(field, f"Build name does not exist: {value}")
 
 
 class AbsProjectDirPathChecker:
@@ -47,12 +47,12 @@ class AbsProjectDirPathChecker:
 
         for directory in paths:
             if not directory.is_absolute():
-                error(field, f"{str(directory)} should be an absolute path.")
+                error(field, f"Directory path should be absolute: {str(directory)}")
                 break
 
             # Remember paths can now be directories or specific paths to files.
             if not directory.exists():
-                error(field, f"{str(directory)} does not exist.")
+                error(field, f"Directory does not exist: {str(directory)}")
                 break
 
 class RelProjectDirPathChecker:
@@ -60,12 +60,12 @@ class RelProjectDirPathChecker:
         self.project_dir = project_dir
 
     def check(self, field, paths, error):
-        paths = [(self.project_dir / the_path).resolve() for the_path in paths]
+        paths = [(self.project_dir / the_path) for the_path in paths]
 
         for directory in paths:
             # Remember paths can now be directories or specific paths to files.
             if not directory.exists():
-                error(field, f"{str(directory)} does not exist.")
+                error(field, f"Directory does not exist: \"{str(directory)}\"")
                 break
 
 
@@ -80,12 +80,12 @@ class AimCustomValidator(cerberus.Validator):
         def check_convention(_field, _value):
             the_errors = []
             if _value.startswith("lib"):
-                the_error_str = "You should not prefix names with 'lib'."
+                the_error_str = f"Unnecessary 'lib' prefix in {_value}. Aim will add this automatically."
                 the_errors.append(the_error_str)
 
             suffix = Path(_value).suffix
             if suffix:
-                the_error_str = f"You should not specify the suffix."
+                the_error_str = f"Unecessary suffix \"{suffix}\". Aim will add this automatically."
                 the_errors.append(the_error_str)
 
             return the_errors
@@ -216,6 +216,26 @@ def target_schema(document, project_dir):
     validator = AimCustomValidator()
     validator.validate(document, schema)
 
+    import pprint
+    pretty = pprint.PrettyPrinter(indent=2, width=100)
     # TODO: Handle schema errors. https://docs.python-cerberus.org/en/stable/errors.html
     if validator.errors:
-        raise RuntimeError(validator.errors)
+        for k,v in validator.errors.items():
+            if (k!= "builds"):
+                print(f"Error for field \"{k}\"")
+                pretty.pprint(f"{v}")
+                print()
+
+        builds_errors = validator.errors.get("builds", {})
+        if builds_errors:
+            assert len(builds_errors) == 1, "Build error list size is greater than 1."
+            for k, v in builds_errors[0].items():
+                builds = document["builds"]
+                the_build = builds[k]
+                the_build_name = the_build["name"]
+
+                print(f"Error in build: \"{the_build_name}\"")
+                assert len(v) == 1, "Length is not 1. Not sure if it can ever be more than."
+                pretty.pprint(v[0])
+                print()
+        exit(-1)
