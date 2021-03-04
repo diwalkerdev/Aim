@@ -120,11 +120,11 @@ class MSVCBuilds:
             ninja_writer.include(escape_path(str(rule_path)))
             ninja_writer.newline()
 
-            if the_build == "staticlib":
+            if the_build == "staticLib":
                 self.build_static_library(ninja_writer, build)
             elif the_build == "exe":
                 self.build_executable(ninja_writer, build)
-            elif the_build == "dynamiclib":
+            elif the_build == "dynamicLib":
                 self.build_dynamic_library(ninja_writer, build)
             else:
                 raise RuntimeError(f"Unknown build type {the_build}.")

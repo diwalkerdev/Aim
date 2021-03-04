@@ -390,7 +390,7 @@ class GCCBuilds:
 
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
-            if the_dep["buildRule"] == "dynamiclib":
+            if the_dep["buildRule"] == "dynamicLib":
                 library_paths.update([the_dep["name"]])
 
         build_dir = Path(build["build_dir"])
@@ -407,9 +407,9 @@ class GCCBuilds:
         return f"-Wl,-rpath='{relative_paths_string}'"
 
     def add_naming_convention(self, output_name, build_type):
-        if build_type == "staticlib":
+        if build_type == "staticLib":
             new_name = self.add_static_library_naming_convention(output_name)
-        elif build_type == "dynamiclib":
+        elif build_type == "dynamicLib":
             new_name = self.add_dynamic_library_naming_convention(output_name)
         else:
             new_name = self.add_exe_naming_convention(output_name)

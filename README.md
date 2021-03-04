@@ -55,7 +55,7 @@ A target file can contain a number of builds. Each build could be a part of the 
 ```
 [[builds]]
     name = "exe"                        # the unique name for this build.
-    buildRule = "exe"                   # the type of build, in this case an executable. But can also be staticlib or dynamiclib.
+    buildRule = "exe"                   # the type of build, in this case an executable. But can also be staticLib or dynamicLib or headerOnly.
     requires = ["lib_adder"]            # the name of a build also built by Aim. Must be library.
     outputName = "the_calculator"       # the output name, which is either the executable name or the library name.
     srcDirs = ["src"]                   # the src directories to build the executable library from.

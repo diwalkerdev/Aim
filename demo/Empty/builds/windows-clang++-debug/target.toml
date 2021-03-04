@@ -10,7 +10,7 @@ flags = [
 
 [[builds]]                              
     name = "libraryname"
-    buildRule = "staticLib" # or dynamiclib
+    buildRule = "staticLib" # or dynamicLib
     outputName = "LibraryName"
     srcDirs = ["lib"]
     includePaths = ["include"]

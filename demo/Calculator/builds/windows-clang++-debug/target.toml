@@ -12,14 +12,14 @@ defines = []
 
 #[[builds]]
 #    name = "static"
-#    buildRule = "staticlib"
+#    buildRule = "staticLib"
 #    outputName = "libraryName.lib"
 #    srcDirs = ["../lib"]
 #    includePaths = ["../include"]
 
 [[builds]]
     name = "shared"
-    buildRule = "dynamiclib"
+    buildRule = "dynamicLib"
     outputName = "libraryName.dll"
     srcDirs = ["../lib"]
     includePaths = ["../include"]

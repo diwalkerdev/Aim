@@ -14,7 +14,7 @@ def get_rpath(build: Dict, parsed_toml: Dict):
 
     for required in requires:
         the_dep = find_build(required, parsed_toml["builds"])
-        if the_dep["buildRule"] == "dynamiclib":
+        if the_dep["buildRule"] == "dynamicLib":
             library_paths.append(the_dep["name"])
 
     build_dir = Path(build["build_dir"]).resolve()
