@@ -14,6 +14,14 @@ ToObjectFiles = src_to_o
 FileExtensions = ["*.cpp", "*.cc", ".c"]
 
 
+from dataclasses import dataclass
+
+@dataclass
+class LibraryInformation:
+    name: str
+    path: str
+    type: str
+
 def get_src_files(build):
     directory = build["directory"]
     srcs = prepend_paths(directory, build["srcDirs"])
@@ -116,6 +124,9 @@ def get_required_include_information(build, parsed_toml):
     quote_args = PrefixQuoteIncludePath(quote_include_paths)
     return include_args + system_include_args + quote_args
 
+
+
+
 class GCCBuilds:
     def build(self, build, parsed_toml, project_writer: Writer):
         build_name = build["name"]
@@ -142,6 +153,23 @@ class GCCBuilds:
             )
         else:
             raise RuntimeError(f"Unknown build type {the_build}.")
+
+    def get_full_library_name_convention(self, lib_infos):
+        # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
+        # lib .a/.so but the build dependency rule does need the full convention to find the build rule in the library's
+        # build.ninja file.
+        full_library_names = []
+        for info in lib_infos:
+            if info.type == "staticlib":
+                full_library_names.append(
+                    self.add_static_library_naming_convention(info.name)
+                )
+            else:
+                full_library_names.append(
+                    self.add_dynamic_library_naming_convention(info.name)
+                )
+
+        return full_library_names
 
     def add_compile_rule(self, pfw: Writer, build: Dict, parsed_toml, includes, extra_flags: StringList = None):
         build_name = build["name"]
@@ -236,39 +264,27 @@ class GCCBuilds:
 
         compiler, _, cxxflags, defines = self.get_build_overrides(build, parsed_toml)
         includes = self.get_includes_for_build(build, parsed_toml)
-        libraries, library_paths = get_external_libraries_information(build)
-
-        (
-            requires_libraries,
-            _,
-            requires_library_paths,
-            requires_library_types,
-        ) = self.get_required_library_information(build, parsed_toml)
-
+        obj_files = self.add_compile_rule(pfw, build, parsed_toml, includes)
         rpath = self.get_rpath(build, parsed_toml)
+        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
+        external_libraries_names = PrefixLibrary(external_libraries_names)
+        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
+
+        lib_infos = self.get_required_library_information(build, parsed_toml)
+        requires_libraries = [info.name for info in lib_infos]
+        requires_library_paths = [info.path for info in lib_infos]
+        requires_libraries = PrefixLibrary(requires_libraries)
+        requires_library_paths = PrefixLibraryPath(requires_library_paths)
+
         linker_args = (
             [rpath]
-            + PrefixLibrary(requires_libraries)
-            + PrefixLibrary(libraries)
+            + requires_libraries
+            + external_libraries_names
             + requires_library_paths
-            + library_paths
+            + external_libraries_paths
         )
 
-        obj_files = self.add_compile_rule(pfw, build, parsed_toml, includes)
-
-        # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
-        # lib .a/.so but the build dependency rule does need the full convention to find the build rule in the library's
-        # build.ninja file.
-        full_library_names = []
-        for name, build_type in zip(requires_libraries, requires_library_types):
-            if build_type == "staticlib":
-                full_library_names.append(
-                    self.add_static_library_naming_convention(name)
-                )
-            else:
-                full_library_names.append(
-                    self.add_dynamic_library_naming_convention(name)
-                )
+        full_library_names = self.get_full_library_name_convention(lib_infos)
 
         exe_name = self.add_exe_naming_convention(build["outputName"])
         relative_output_name = str(Path(build_name) / exe_name)
@@ -295,44 +311,33 @@ class GCCBuilds:
         requires = build.get("requires", [])
         build_path = build["buildPath"]
 
-        compiler, _, cxxflags, defines = self.get_build_overrides(build, parsed_toml)
-
-        includes = self.get_includes_for_build(build, parsed_toml)
-        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
-
-        (
-            required_library_names,
-            _,
-            required_library_paths,
-            required_library_types,
-        ) = self.get_required_library_information(build, parsed_toml)
-
-
-        linker_args = (
-            PrefixLibrary(required_library_names)
-            + required_library_paths
-            + PrefixLibrary(external_libraries_names)
-            + external_libraries_paths
-        )
-
         extra_flags = ["-DEXPORT_DLL_PUBLIC",
                        "-fvisibility=hidden",
                        "-fPIC"]
-        obj_files = self.add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
 
-        # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
-        # lib .a/.so but the build dependency rule does need the full convention to find the build rule in the library's
-        # build.ninja file.
-        full_library_names = []
-        for name, build_type in zip(required_library_names, required_library_types):
-            if build_type == "staticlib":
-                full_library_names.append(
-                    self.add_static_library_naming_convention(name)
-                )
-            else:
-                full_library_names.append(
-                    self.add_dynamic_library_naming_convention(name)
-                )
+        compiler, _, cxxflags, defines = self.get_build_overrides(build, parsed_toml)
+        includes = self.get_includes_for_build(build, parsed_toml)
+        obj_files = self.add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
+        rpath = self.get_rpath(build, parsed_toml)
+        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
+        external_libraries_names = PrefixLibrary(external_libraries_names)
+        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
+
+        lib_infos = self.get_required_library_information(build, parsed_toml)
+        requires_libraries = [info.name for info in lib_infos]
+        requires_library_paths = [info.path for info in lib_infos]
+        requires_libraries = PrefixLibrary(requires_libraries)
+        requires_library_paths = PrefixLibraryPath(requires_library_paths)
+
+        linker_args = (
+                [rpath]
+                + requires_libraries
+                + external_libraries_names
+                + requires_library_paths
+                + external_libraries_paths
+        )
+
+        full_library_names = self.get_full_library_name_convention(lib_infos)
 
         library_name = self.add_dynamic_library_naming_convention(build["outputName"])
         relative_output_name = str(Path(build_name) / library_name)
@@ -355,25 +360,22 @@ class GCCBuilds:
         pfw.build(rule="phony", inputs=library_name, outputs=build_name)
         pfw.newline()
 
-    def get_required_library_information(self, build, parsed_toml):
+    def get_required_library_information(self, build, parsed_toml) -> List[LibraryInformation]:
         requires = build.get("requires", [])
         if not requires:
-            return [], [], [], []
+            return []
 
-        library_names = []
-        library_paths = []
-        library_types = []
+        library_names = [] # Used to prevent duplicates.
+        result = []
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
             output_name = the_dep["outputName"]
             if output_name not in library_names:
-                library_names += [output_name]
-                library_paths += [the_dep["name"]]
-                library_types += [the_dep["buildRule"]]
+                library_names.append(output_name)
+                lib_info = LibraryInformation(output_name, the_dep["name"], the_dep["buildRule"])
+                result.append(lib_info)
 
-        library_paths = PrefixLibraryPath(library_paths)
-        prefixed_library_names = PrefixLibrary(library_names)
-        return library_names, prefixed_library_names, library_paths, library_types
+        return result
 
 
     def get_rpath(self, build: Dict, parsed_toml: Dict):
