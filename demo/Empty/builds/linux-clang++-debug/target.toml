@@ -1,8 +1,8 @@
 projectRoot = "../.."
 
+compilerFrontend="gcc"
 compiler = "clang++"
 ar = "ar"
-compilerFrontend="gcc"
 
 flags = [
     "-std=c++20",
@@ -16,7 +16,7 @@ flags = [
 
 [[builds]]                              
     name = "libraryname"
-    buildRule = "staticlib" # or dynamiclib
+    buildRule = "staticLib" # or dynamicLib
     outputName = "LibraryName"
     srcDirs = ["lib"]
     includePaths = ["include"]

@@ -1,8 +1,8 @@
 projectRoot = "../.."
 
+compilerFrontend="gcc"
 compiler = "clang++"
 ar = "ar"
-compilerFrontend="gcc"
 
 flags = [
     "-std=c++17",
@@ -16,14 +16,14 @@ flags = [
 
 [[builds]]                              
     name = "calculatorstatic"
-    buildRule = "staticlib"
+    buildRule = "staticLib"
     outputName = "CalculatorStatic"
     srcDirs = ["lib"]
     includePaths = ["include"]
 
 [[builds]]
     name = "calculatordynamic"
-    buildRule = "dynamiclib"
+    buildRule = "dynamicLib"
     outputName = "CalculatorShared"
     srcDirs = ["lib"]
     includePaths = ["include"]

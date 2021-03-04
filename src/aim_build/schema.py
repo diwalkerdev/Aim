@@ -72,7 +72,7 @@ class RelProjectDirPathChecker:
 class AimCustomValidator(cerberus.Validator):
     def _check_with_output_naming_convention(self, field, value: Union[str, list]):
         # if you need more context then you can get it using the line below.
-        # if self.document["buildRule"] in ["staticlib", "dynamiclib"]:
+        # if self.document["buildRule"] in ["staticLib", "dynamicLib"]:
 
         # TODO: should we also check that the names are camelCase?
         # TODO: check outputNames are unique to prevent dependency cycle.
@@ -140,33 +140,41 @@ def target_schema(document, project_dir):
                         "type": "string",
                         "check_with": unique_name_checker.check,
                     },
-                    "compiler": {"required": False, "type": "string"},
+                    "compiler": {
+                        "required": False,
+                        "type": "string",
+                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
+                    },
                     "defines": {
                         "type": "list",
                         "schema": {"type": "string"},
                         "empty": False,
                         "check_with": defines_checker.check,
+                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
                     },
                     "flags": {
                         "type": "list",
                         "schema": {"type": "string"},
                         "empty": False,
+                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
                     },
                     "requires": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": requires_exist_checker.check,
+                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
                     },
                     "buildRule": {
                         "required": True,
                         "type": "string",
-                        "allowed": ["exe", "staticlib", "dynamiclib"],
+                        "allowed": ["exe", "staticLib", "dynamicLib", "headerOnly"],
                     },
                     "outputName": {
                         "required": True,
                         "type": "string",
                         "check_with": "output_naming_convention",
+                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
                     },
                     "srcDirs": {
                         "required": True,
@@ -174,6 +182,7 @@ def target_schema(document, project_dir):
                         "type": "list",
                         "schema": {"type": "string"},
                         "check_with": path_checker.check,
+                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
                     },
                     "includePaths": {
                         "type": "list",
@@ -186,12 +195,14 @@ def target_schema(document, project_dir):
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": abs_path_checker.check,
+                        "dependencies": {"buildRule": ["exe", "dynamicLib"]},
                     },
                     "localIncludePaths": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": path_checker.check,
+                        "dependencies": {"buildRule": ["exe", "dynamicLib"]},
                     },
                     "libraryPaths": {
                         "type": "list",
@@ -199,13 +210,13 @@ def target_schema(document, project_dir):
                         "schema": {"type": "string"},
                         # you can't check the library dirs as they may not exist if the project not built before.
                         # "check_with": path_checker.check,
-                        "dependencies": {"buildRule": ["exe", "dynamiclib"]},
+                        "dependencies": {"buildRule": ["exe", "dynamicLib"]},
                     },
                     "libraries": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
-                        "dependencies": {"buildRule": ["exe", "dynamiclib"]},
+                        "dependencies": {"buildRule": ["exe", "dynamicLib"]},
                         "check_with": "output_naming_convention",
                     },
                 },

@@ -139,7 +139,7 @@ class GCCBuilds:
 
         build["buildPath"] = build_path
 
-        if the_build == "staticlib":
+        if the_build == "staticLib":
             self.build_static_library(
                 project_writer, build, parsed_toml
             )
@@ -147,20 +147,22 @@ class GCCBuilds:
             self.build_executable(
                 project_writer, build, parsed_toml
             )
-        elif the_build == "dynamiclib":
+        elif the_build == "dynamicLib":
             self.build_dynamic_library(
                 project_writer, build, parsed_toml
             )
+        elif the_build == "headerOnly":
+            pass
         else:
             raise RuntimeError(f"Unknown build type {the_build}.")
 
     def get_full_library_name_convention(self, lib_infos):
         # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
-        # lib .a/.so but the build dependency rule does need the full convention to find the build rule in the library's
+        # lib{name}.a/.so but the build dependency rule does need the full convention to find the build rule in the
         # build.ninja file.
         full_library_names = []
         for info in lib_infos:
-            if info.type == "staticlib":
+            if info.type == "staticLib":
                 full_library_names.append(
                     self.add_static_library_naming_convention(info.name)
                 )
@@ -369,6 +371,8 @@ class GCCBuilds:
         result = []
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
+            if the_dep["buildRule"] == "headerOnly":
+                continue
             output_name = the_dep["outputName"]
             if output_name not in library_names:
                 library_names.append(output_name)
