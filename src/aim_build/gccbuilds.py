@@ -1,5 +1,5 @@
 import functools
-from typing import Dict
+from typing import Dict, List, Tuple
 from aim_build.utils import *
 from ninja_syntax import Writer
 
@@ -125,8 +125,6 @@ def get_required_include_information(build, parsed_toml):
     return include_args + system_include_args + quote_args
 
 
-
-
 class GCCBuilds:
     def build(self, build, parsed_toml, project_writer: Writer):
         build_name = build["name"]
@@ -153,6 +151,8 @@ class GCCBuilds:
             )
         elif the_build == "headerOnly":
             pass
+        elif the_build == "libraryReference":
+            pass
         else:
             raise RuntimeError(f"Unknown build type {the_build}.")
 
@@ -166,7 +166,7 @@ class GCCBuilds:
                 full_library_names.append(
                     self.add_static_library_naming_convention(info.name)
                 )
-            else:
+            elif info.type == "dynamicLib":
                 full_library_names.append(
                     self.add_dynamic_library_naming_convention(info.name)
                 )
@@ -278,12 +278,18 @@ class GCCBuilds:
         requires_libraries = PrefixLibrary(requires_libraries)
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
 
+        ref_libraries, ref_library_paths = self.get_reference_library_information(build, parsed_toml)
+        ref_libraries = PrefixLibrary(ref_libraries)
+        ref_library_paths = PrefixLibraryPath(ref_library_paths)
+
         linker_args = (
             [rpath]
-            + requires_libraries
-            + external_libraries_names
             + requires_library_paths
             + external_libraries_paths
+            + ref_library_paths
+            + requires_libraries
+            + external_libraries_names
+            + ref_libraries
         )
 
         full_library_names = self.get_full_library_name_convention(lib_infos)
@@ -331,12 +337,18 @@ class GCCBuilds:
         requires_libraries = PrefixLibrary(requires_libraries)
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
 
+        ref_libraries, ref_library_paths = self.get_reference_library_information(build, parsed_toml)
+        ref_libraries = PrefixLibrary(ref_libraries)
+        ref_library_paths = PrefixLibraryPath(ref_library_paths)
+
         linker_args = (
-                [rpath]
-                + requires_libraries
-                + external_libraries_names
-                + requires_library_paths
-                + external_libraries_paths
+            [rpath]
+            + requires_library_paths
+            + external_libraries_paths
+            + ref_library_paths
+            + requires_libraries
+            + external_libraries_names
+            + ref_libraries
         )
 
         full_library_names = self.get_full_library_name_convention(lib_infos)
@@ -367,19 +379,40 @@ class GCCBuilds:
         if not requires:
             return []
 
-        library_names = [] # Used to prevent duplicates.
+        build_names = [] # Used to prevent duplicates.
         result = []
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
-            if the_dep["buildRule"] == "headerOnly":
+            if the_dep["buildRule"] in ["headerOnly", "libraryReference"]:
                 continue
-            output_name = the_dep["outputName"]
-            if output_name not in library_names:
-                library_names.append(output_name)
-                lib_info = LibraryInformation(output_name, the_dep["name"], the_dep["buildRule"])
+            build_name = the_dep["name"]
+            if build_name not in build_names:
+                build_names.append(build_name)
+                lib_info = LibraryInformation(the_dep["outputName"], the_dep["name"], the_dep["buildRule"])
                 result.append(lib_info)
 
         return result
+
+    def get_reference_library_information(self, build, parsed_toml) -> Tuple[List[str], List[str]]:
+        requires = build.get("requires", [])
+        if not requires:
+            return [], []
+
+        build_names = [] # Used to prevent duplicates.
+        libraries = []
+        library_paths = []
+        for required in requires:
+            the_dep = find_build(required, parsed_toml["builds"])
+            if the_dep["buildRule"] != "libraryReference":
+                continue
+
+            build_name = the_dep["name"]
+            if build_name not in build_names:
+                build_names.append(build_name)
+                libraries += the_dep.get("libraries", [])
+                library_paths += the_dep.get("libraryPaths", [])
+
+        return libraries, library_paths
 
 
     def get_rpath(self, build: Dict, parsed_toml: Dict):
