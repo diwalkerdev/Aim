@@ -140,6 +140,21 @@ def target_schema(document, project_dir):
                         "type": "string",
                         "check_with": unique_name_checker.check,
                     },
+                    "buildRule": {
+                        "required": True,
+                        "type": "string",
+                        # "allowed": ["exe", "staticLib", "dynamicLib", "headerOnly", "libraryReference"],
+                        "oneof": [
+                            {
+                                "excludes": "outputName",
+                                "allowed": ["headerOnly", "libraryReference"]
+                            },
+                            {
+                                "dependencies": ["outputName"],
+                                "allowed" : ["exe", "staticLib", "dynamicLib"]
+                            }
+                        ]
+                    },
                     "compiler": {
                         "required": False,
                         "type": "string",
@@ -165,19 +180,14 @@ def target_schema(document, project_dir):
                         "check_with": requires_exist_checker.check,
                         "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
                     },
-                    "buildRule": {
-                        "required": True,
-                        "type": "string",
-                        "allowed": ["exe", "staticLib", "dynamicLib", "headerOnly"],
-                    },
+                    # Required but the requirement is handled by build rule.
                     "outputName": {
-                        "required": True,
                         "type": "string",
+                        "empty": False,
                         "check_with": "output_naming_convention",
-                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
                     },
                     "srcDirs": {
-                        "required": True,
+                        "required": False,
                         "empty": False,
                         "type": "list",
                         "schema": {"type": "string"},
@@ -195,14 +205,12 @@ def target_schema(document, project_dir):
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": abs_path_checker.check,
-                        "dependencies": {"buildRule": ["exe", "dynamicLib"]},
                     },
                     "localIncludePaths": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": path_checker.check,
-                        "dependencies": {"buildRule": ["exe", "dynamicLib"]},
                     },
                     "libraryPaths": {
                         "type": "list",
@@ -210,14 +218,14 @@ def target_schema(document, project_dir):
                         "schema": {"type": "string"},
                         # you can't check the library dirs as they may not exist if the project not built before.
                         # "check_with": path_checker.check,
-                        "dependencies": {"buildRule": ["exe", "dynamicLib"]},
+                        "dependencies": {"buildRule": ["exe", "dynamicLib", "libraryReference"]},
                     },
                     "libraries": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
-                        "dependencies": {"buildRule": ["exe", "dynamicLib"]},
                         "check_with": "output_naming_convention",
+                        "dependencies": {"buildRule": ["exe", "dynamicLib", "libraryReference"]},
                     },
                 },
             },
