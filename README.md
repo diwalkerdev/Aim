@@ -12,58 +12,14 @@
 ![GitHub](https://img.shields.io/github/license/diwalkerdev/aim)
 
 # Aim
-Aim is a command line tool for building C++ projects. 
+A command line tool for building C++ projects. 
 
-Project goals:
- * Simplify building C++ projects
- * Clear, easy to understand mechanism for supporting different **build targets**\*
- * Rapid dependency resolution and builds provided by [ninja](https://ninja-build.org/)
- * Easy to use - builds are managed using a `toml` file
+## Introduction
+Aim is an attempt to make building C++ projects from source as simple as possible while encouraging a modular approach 
+to software development.
 
-\* A **build target** is some combination of _things_ that affects the output binary. See Methodology for more information.
-
-See [ShapeAttack](https://github.com/diwalkerdev/ShapeAttack), for a demo of how Aim can be used in a real world example.
-
-
-## Known Limitations
-* Windows support is still in development.
-
-
-## Why another build tool?
-Aim is an attempt to make building C++ projects as simple as possible. It is very easy to add libraries and other executables to a project. Other build tools seem overly complex and require users to learn new sytaxes. 
-
-With Aim:
-* adding build targets is simple and explicit
-* all builds occur in their own directory by default
-* builds are fast and reliable executed by the `ninja` build system.
-
-All you have to do is write the `target.toml` file. It is very easy.
-
-
-## Methodology
-Aim treats any build variation as its own unique build target. A build target is some combination of _things_ that affects the output binary. This could be variations of:
- * operating system (Windows, OSX, Gnu Linux)
- * compiler (MSVC, GCC, Clang)
- * build type (Release, Debug, Sanitized)
- * and maybe more. 
- 
- Each build target has its own name, which is just some unique identifier that may comprise of the 'parts' that make up the build. For example, the build target `linux-clang++-release` indicates that this is a `release` build, using the `clang++` compiler for the `linux` operating system.
-
-Support for a build target is added by writing a `target.toml` file in a build directory. Each `target.toml` file must be written out in full for each target that you need to support. There is no way for target files to share information or to depend on another. While this leads to duplication between target files, it makes them very explicit and makes debugging builds much easier.
-
-A target file can contain a number of builds. Each build could be a part of the project that builds as static or dyanamic library or as an executable. A build in the `target.toml` file will look roughly like:
-```
-[[builds]]
-    name = "exe"                        # the unique name for this build.
-    buildRule = "exe"                   # the type of build, in this case an executable. But can also be staticLib or dynamicLib or headerOnly.
-    requires = ["lib_adder"]            # the name of a build also built by Aim. Must be library.
-    outputName = "the_calculator"       # the output name, which is either the executable name or the library name.
-    srcDirs = ["src"]                   # the src directories to build the executable library from.
-    includePaths = ["include"]          # additional include paths to use during the build.
-```
-There are additional options depending on the `buildRule`. For a complete list of options see `schema.py`.
-
-When a build is executed, all artifacts are placed in the target's build directory. This keeps your source directory clean and free of clutter.
+Aim only requires a `target.toml` file which is used to specify the builds of your project. Each build specifies a
+component of your project, like a static library, dynamic library, or an executable.
 
 
 ## Getting Started
@@ -82,19 +38,104 @@ pip install --user aim-build
 
 ### Using
 
-<img src="https://github.com/diwalkerdev/Assets/blob/master/Aim/aim-init-demo.gif?raw=true" width="600px">
-
-Note, `aim init` has an optional flag `--demo`. This adds some simple source files to the project for demonstration purposes.
-
 There are 3 main commands:
-* `list` - Displays the builds for the target
-* `init` - Creates a project structure
-* `build` - Executes a build
+* `init` - initialises a directory with an empty project structure
+* `list --target=path/to/target_toml_dir` - displays the builds for the target
+* `build --target=path/to/target_toml_dir <build name>` - executes a build
 
 For more information run:
 ```
 aim <command> --help
 ```
+
+The easiest way to get started is to use `aim init --demo-files`. `aim init` can be used to generate an empty
+project structure and the `--demo-files` flags will copy a small test application into the current directory for 
+demonstration purposes.
+
+You can then list the available builds of a target by specifying:
+
+`aim list --target=builds/linux-clang++-debug`
+
+And to build:
+
+`aim build --target=builds/linux-clang++-debug <build name>`
+
+<img src="https://github.com/diwalkerdev/Assets/blob/master/Aim/aim-init-demo.gif?raw=true" width="600px">
+
+## Target files
+A `target.toml` file describes a project and its build components.
+
+Begin by specifying the project root which is the path from the target file to your source files. All relative paths 
+will be relative to this directory.
+
+The compiler frontend informs Aim how to construct compiler arguments. Next specify the compiler, archiver, flags and
+any defines. 
+```
+projectRoot = "../.."
+
+compilerFrontend="gcc"
+compiler = "clang++"
+ar = "ar"
+
+flags = [
+    "-std=c++17",
+    "-O3",
+    "-g",
+    "-Wall",
+]
+
+# defines = [...]
+```
+
+Next specify your builds. For each build you must specify the `name` and `buildRule`. Valid build rules are `staticLib`,
+`dynamicLib`, `exe`, `headerOnly` or `libraryReference`. A build typically looks like:
+
+```
+[[builds]]
+    name = "calculatorApp"
+    buildRule = "exe"
+    requires = ["calculatorDynamic"] # A list of dependancies for this build.
+    outputName = "CalculatorApp"     # The output name. Aim will manage any prefixes or suffixes required.
+    srcDirs = ["src"]                # A list of source directories.
+    includePaths = ["include"]       # A list of include paths.
+    # The libraryPaths and libraries fields can be used to specify additional
+    # libraries and paths to the build. This allows for linking against third
+    # party libraries.
+    #libraryPaths = []
+    #libraries = []
+```
+
+Aim will automatically generate the correct flags to use dependencies specified in the `requires` field.
+
+A `headerOnly` build does not have an `outputName` or `srcDirs`. It exists only so the `includePaths` can be imported
+into another build using the `requires` field.
+
+A `libraryReference` does not have `srcDirs`. It exists only so the `includePaths`, `libraries` and `libraryPaths` field
+can be imported into another build using the `requires` field.
+
+The fields `compiler`, `flags` and `defines` are normally written at the top of the target file before the builds 
+section. By default, all builds will use these fields i.e. they are global, but they can also be overridden by specifying 
+them again in a build. Note that when these fields are specified specifically for a build, they completely replace the global
+definition; any `flags` or `defines` that you specify must be written out in full as they will not share
+any values with the global definition.
+
+## Methodology
+Aim treats any build variation as its own unique build target with its own unique `target.toml`. 
+
+A build target is some combination of _things_ that affects the output binary such as:
+ * operating system (Windows, OSX, Gnu Linux)
+ * compiler (MSVC, GCC, Clang)
+ * build type (Release, Debug, Sanitized)
+ * etc. 
+ 
+Each build target and corresponding `target.toml` file must have its own directory ideally named using a unique 
+identifier that comprises the 'parts' that make up the build. For example, the target file in the directory 
+`linux-clang++-release` indicates that the toml file describes a project that is a `release` build, uses the `clang++`
+compiler and is for the `linux` operating system. 
+
+Note: each `target.toml` file must be written out in full for each target that you need to support. There is no way for
+target files to share information or to depend on another. While this leads to duplication between target files, it 
+makes them very explicit and makes debugging builds much easier.
 
 ## Developing Aim
 
@@ -107,29 +148,16 @@ poetry install
 ```
 
 ### Dev Install
-Unfortunately, unlike `setuptools`, there is no means to do a 'dev install' using poetry. A dev install causes a command line script to use the current development code which is useful so a project does not need to be reinstalled after every modification. 
+Unfortunately, unlike `setuptools`, there is no means to do a 'dev install' using poetry. A dev install uses the
+active source files under development, so the application can be tested without being installed each time.
 
-In order to use Aim on the command line, is it recommended to create an alias. The alias needs to:
+In order to use Aim on the command line, is it recommended creating an alias. The alias needs to:
 * adds Aim to `PYTHONPATH` to resolve import/module paths 
 * execute the main Aim script using virtualenv's python
 
-For `bash` this looks like:
-```
-alias aim="PYTHONPATH=$PWD/src $(poetry env info -p)/bin/python $PWD/src/aim_build/main.py"
-```
+Aim provides a `dev-env.bash` and `dev-env.fish` for setting an alias to mimic a 'dev' install. These files must be
+sourced.
 
-For `fish` shell this looks like:
-```
-alias aim="PYTHONPATH=$PWD/src "(poetry env info -p)"/bin/python $PWD/src/aim_build/main.py"
-```
-
-## Other remarks
-The target file can be extended with other builds. For example to add unit tests. Begin by partitioning any code that
-needs to be tested into a library. Then create another build for the test. Since unit tests are really an executable,
-set `buildRule="exe"` and add the library to the `requires` list. Remember to update the build for the primary
-executable as well if you have one.
-
-The unit tests can now be built and run like any other executable.
-
-## Future improvements / known limitations
- * The `cc` field isn't actually used at the moment. All build steps are performed by the cxx compiler.
+   
+## Known Limitations
+* Windows support is still in development but is coming soon.

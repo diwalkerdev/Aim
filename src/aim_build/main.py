@@ -77,7 +77,7 @@ def entry():
 
     build_parser.add_argument(
         "--profile-build",
-        help="forwards the ftime-trace to the compiler for emitting build profile information. View using chome://tracing.",
+        help="forwards -ftime-trace to the compiler for emitting build profile information. View using chome://tracing.",
         action="store_true",
     )
 
