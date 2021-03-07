@@ -48,7 +48,11 @@ For more information run:
 aim <command> --help
 ```
 
-The easiest way to get started is to use `aim init --demo-files`. `aim init` can be used to generate an empty
+The easiest way to get started is to use:
+
+`aim init --demo-files`
+
+`aim init` can be used to generate an empty
 project structure and the `--demo-files` flags will copy a small test application into the current directory for 
 demonstration purposes.
 
@@ -65,11 +69,11 @@ And to build:
 ## Target files
 A `target.toml` file describes a project and its build components.
 
-Begin by specifying the project root which is the path from the target file to your source files. All relative paths 
+Begin by specifying `projectRoot` which is the path from the target file to your source files. All relative paths 
 will be relative to this directory.
 
-The compiler frontend informs Aim how to construct compiler arguments. Next specify the compiler, archiver, flags and
-any defines. 
+The compiler frontend informs Aim how to construct compiler arguments (Note, only the `gcc` frontend is currently supported, but `msvc` will be added soon). Next specify the `compiler`, `archiver`, `flags` and
+any `defines`. 
 ```
 projectRoot = "../.."
 
@@ -84,7 +88,7 @@ flags = [
     "-Wall",
 ]
 
-# defines = [...]
+# defines = [...] # Defines do not need the -D prefix.
 ```
 
 Next specify your builds. For each build you must specify the `name` and `buildRule`. Valid build rules are `staticLib`,
@@ -94,7 +98,7 @@ Next specify your builds. For each build you must specify the `name` and `buildR
 [[builds]]
     name = "calculatorApp"
     buildRule = "exe"
-    requires = ["calculatorDynamic"] # A list of dependancies for this build.
+    requires = ["calculatorDynamic"] # A list of dependencies for this build.
     outputName = "CalculatorApp"     # The output name. Aim will manage any prefixes or suffixes required.
     srcDirs = ["src"]                # A list of source directories.
     includePaths = ["include"]       # A list of include paths.
@@ -105,21 +109,18 @@ Next specify your builds. For each build you must specify the `name` and `buildR
     #libraries = []
 ```
 
-Aim will automatically generate the correct flags to use dependencies specified in the `requires` field.
+Other notes:
 
-A `headerOnly` build does not have an `outputName` or `srcDirs`. It exists only so the `includePaths` can be imported
-into another build using the `requires` field.
+* The `requires` field is important as it is how you specify the dependencies for a build. For example, if you create a static library named "myAwesomeLibrary", this can be used in other builds simply by specifying  `requires=["myAwesomeLibrary"]`. 
 
-A `libraryReference` does not have `srcDirs`. It exists only so the `includePaths`, `libraries` and `libraryPaths` field
-can be imported into another build using the `requires` field.
+* A `headerOnly` build does not have an `outputName` or `srcDirs` as it is not built. The `headerOnly` rule is not essential and is mostly for convenience. If you have a header only library, repeating the include paths across several builds can be become repetitive. Instead, create a `headerOnly` build to capture the include paths and use it in other builds by adding the rule to the builds `requires` field. 
 
-The fields `compiler`, `flags` and `defines` are normally written at the top of the target file before the builds 
-section. By default, all builds will use these fields i.e. they are global, but they can also be overridden by specifying 
-them again in a build. Note that when these fields are specified specifically for a build, they completely replace the global
-definition; any `flags` or `defines` that you specify must be written out in full as they will not share
-any values with the global definition.
+* A `libraryReference` does not have `srcDirs` as it is not built. Like the `headerOnly` rule it is mostly for convience to reduce duplication. The primary use case is for capturing the `includePaths`, `libraryPaths` and `libraries` of a third party library that you need to use in a build. A `libraryReference` can then be used by other builds by adding it to a builds `requires` field.
 
-## Methodology
+
+* The fields `compiler`, `flags` and `defines` are normally written at the top of the target file before the builds section. By default, all builds will use these fields i.e. they are global, but they can also be overridden by specifying them again in a build. Note that when these fields are specified specifically for a build, they completely replace the global definition; any `flags` or `defines` that you specify must be written out in full as they will not share any values with the global definition.
+
+## Supporting Multiple Targets
 Aim treats any build variation as its own unique build target with its own unique `target.toml`. 
 
 A build target is some combination of _things_ that affects the output binary such as:
@@ -129,9 +130,7 @@ A build target is some combination of _things_ that affects the output binary su
  * etc. 
  
 Each build target and corresponding `target.toml` file must have its own directory ideally named using a unique 
-identifier that comprises the 'parts' that make up the build. For example, the target file in the directory 
-`linux-clang++-release` indicates that the toml file describes a project that is a `release` build, uses the `clang++`
-compiler and is for the `linux` operating system. 
+identifier that comprises the 'parts' that make up the build. For example, `builds/linux-clang++-release/target.toml` indicates that the target file describes a project that is a `release` build, uses the `clang++` compiler and is for the `linux` operating system. 
 
 Note: each `target.toml` file must be written out in full for each target that you need to support. There is no way for
 target files to share information or to depend on another. While this leads to duplication between target files, it 
