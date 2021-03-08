@@ -118,6 +118,9 @@ def get_required_include_information(build, parsed_toml):
     include_paths = list(include_paths)
     system_include_paths = list(system_include_paths)
     quote_include_paths = list(quote_include_paths)
+    include_paths.sort()
+    system_include_paths.sort()
+    quote_include_paths.sort()
 
     include_args = PrefixIncludePath(include_paths)
     system_include_args = PrefixSystemIncludePath(system_include_paths)
@@ -229,6 +232,7 @@ class GCCBuilds:
         includes.update(get_quote_include_paths(build))
         includes.update(get_required_include_information(build, parsed_toml))
         includes = list(includes)
+        includes.sort()
         return includes
 
     def build_static_library(self, pfw: Writer, build: Dict, parsed_toml: Dict):
@@ -428,7 +432,9 @@ class GCCBuilds:
 
         build_dir = Path(build["build_dir"])
         current_build_dir = build_dir / build["name"]
-        library_paths = prepend_paths(build_dir, list(library_paths))
+        library_paths = list(library_paths)
+        library_paths.sort()
+        library_paths = prepend_paths(build_dir, library_paths)
         relative_paths = [
             relpath(Path(lib_path), current_build_dir) for lib_path in library_paths
         ]

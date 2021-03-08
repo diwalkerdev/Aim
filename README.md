@@ -132,30 +132,69 @@ A build target is some combination of _things_ that affects the output binary su
 Each build target and corresponding `target.toml` file must have its own directory ideally named using a unique 
 identifier that comprises the 'parts' that make up the build. For example, `builds/linux-clang++-release/target.toml` indicates that the target file describes a project that is a `release` build, uses the `clang++` compiler and is for the `linux` operating system. 
 
+As an example, if you were developing an application for both Windows and Linux, you may end up with a build directory structure like the following:
+ * `builds/linux-clang++-release/target.toml`
+ * `builds/linux-clang++-debug/target.toml`
+ * `builds/windows-clangcl-release/target.toml`
+ * `builds/windows-clangcl-debug/target.toml`
+
 Note: each `target.toml` file must be written out in full for each target that you need to support. There is no way for
 target files to share information or to depend on another. While this leads to duplication between target files, it 
 makes them very explicit and makes debugging builds much easier.
+
+## Advice Structuring Projects
+If you structure your project/libraries as individual repositories then it may seem logical to nest dependencies inside 
+one another. For example, if library B depends on library A, then B needs a copy of A in order for it to be built.
+So you may choose to nest the source of A inside B, perhaps using a git submodule.
+
+The problem comes when your dependency hierarchy becomes more complex. If library C also depends on A, and an application D
+depends on B and C, you'll end up with multiple copies of library A which can become difficult to manage.
+
+You may need to use this approach, as it is useful to be able to build a library in isolation, however you should do so in such 
+a way where pulling the source for the dependencies is optional.
+
+The approach the author uses is to use a non-project-specific directory that includes all your projects directly below it
+i.e. a "flat" structure. So rather than nesting dependencies you have:
+
+```
+ + MyProjects
+ + - LibA
+ + - LibB
+ + - LibC
+ + - ApplicationD
+ + - SomeOtherApp
+ + - builds
+ + - - linux-clang++-debug
+ + - - - target.toml
+```
+
+The flat structure has a single build directory and a single target file for each build target you need to support. This eliminates any 
+duplication and is easy to manage. `Aim` is flexible enough that you can add additional levels to the project structure 
+should you need to. For example, you may want to group all libraries under a libraries sub-directory. But the take-away message 
+is that you should not _enforce_ nested dependencies as this leads to duplication.
+
 
 ## Developing Aim
 
 Aim is a Python project and uses the [poetry](https://python-poetry.org/) dependency manager. See [poetry installation](https://python-poetry.org/docs/#installation) for instructions.
 
-Once you have cloned the project, the virtual environment and dependencies can be installed simply by executing:
+Once you have cloned the project, the virtual environment and dependencies can be installed by executing:
 
 ```
 poetry install
 ```
 
 ### Dev Install
-Unfortunately, unlike `setuptools`, there is no means to do a 'dev install' using poetry. A dev install uses the
-active source files under development, so the application can be tested without being installed each time.
+Unfortunately, unlike `setuptools`, there is no means to do a 'dev install' using poetry. A dev install effectively generates
+an application that internally references the active source files under development. This allows developers to test the application
+without having to re-install the application after each change.
 
-In order to use Aim on the command line, is it recommended creating an alias. The alias needs to:
-* adds Aim to `PYTHONPATH` to resolve import/module paths 
-* execute the main Aim script using virtualenv's python
+In order to use a development version of Aim on the command line, is it recommended creating an alias. The alias needs to:
+* add the Aim directory to `PYTHONPATH` to resolve import/module paths 
+* execute the main Aim script using the virtualenv created by poetry
 
-Aim provides a `dev-env.bash` and `dev-env.fish` for setting an alias to mimic a 'dev' install. These files must be
-sourced.
+There are `dev-env.bash` and `dev-env.fish` scripts that configure this for you in the root of the Aim project directory. 
+Note, these files must be sourced in order for them to work. 
 
    
 ## Known Limitations
