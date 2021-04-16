@@ -2,6 +2,7 @@ import functools
 from typing import Dict, List, Tuple
 from aim_build.utils import *
 from ninja_syntax import Writer
+from dataclasses import dataclass
 
 PrefixIncludePath = functools.partial(prefix, "-I")
 PrefixSystemIncludePath = functools.partial(prefix, "-isystem")
@@ -14,13 +15,12 @@ ToObjectFiles = src_to_o
 FileExtensions = ["*.cpp", "*.cc", ".c"]
 
 
-from dataclasses import dataclass
-
 @dataclass
 class LibraryInformation:
     name: str
     path: str
     type: str
+
 
 def get_src_files(build):
     directory = build["directory"]
@@ -50,12 +50,14 @@ def get_include_paths(build):
     includes = PrefixIncludePath(abs_paths) + PrefixIncludePath(rel_paths)
     return includes
 
+
 def get_quote_include_paths(build):
     directory = build["buildPath"] / ".."
     include_paths = build.get("localIncludePaths", [])
     includes = relpaths(include_paths, directory)
     includes = PrefixQuoteIncludePath(includes)
     return includes
+
 
 def get_system_include_paths(build):
     system_include_paths = build.get("systemIncludePaths", [])
@@ -70,6 +72,7 @@ def get_external_libraries_paths(build):
     library_paths = PrefixLibraryPath(library_paths)
     return library_paths
 
+
 def get_external_libraries_names(build):
     libraries = build.get("libraries", [])
     link_libraries = PrefixLibrary(libraries)
@@ -77,7 +80,7 @@ def get_external_libraries_names(build):
 
 
 def get_external_libraries_information(build):
-    libraries,_ = get_external_libraries_names(build)
+    libraries, _ = get_external_libraries_names(build)
     library_paths = get_external_libraries_paths(build)
     return libraries, library_paths
 
@@ -87,6 +90,7 @@ def find_build(build_name, builds):
     for build in builds:
         if build["name"] == build_name:
             return build
+
 
 def get_required_include_information(build, parsed_toml):
     requires = build.get("requires", [])
@@ -112,8 +116,9 @@ def get_required_include_information(build, parsed_toml):
         quote_includes = relpaths(quote_includes, directory)
         quote_include_paths .update(quote_includes)
 
+        # TODO FIXME
         system_includes = the_dep.get("systemIncludePaths", [])
-        system_include_paths .update(system_include_paths)
+        system_include_paths.update(system_include_paths)
 
     include_paths = list(include_paths)
     system_include_paths = list(system_include_paths)
@@ -128,11 +133,71 @@ def get_required_include_information(build, parsed_toml):
     return include_args + system_include_args + quote_args
 
 
+def get_includes_for_build(build: Dict, parsed_toml: Dict):
+    includes = set()
+    includes.update(get_include_paths(build))
+    includes.update(get_system_include_paths(build))
+    includes.update(get_quote_include_paths(build))
+    includes.update(get_required_include_information(build, parsed_toml))
+    includes = list(includes)
+    includes.sort()
+    return includes
+
+
+def get_build_overrides(build: Dict):
+    local_compiler = build.get("compiler", None)
+    local_archiver = build.get("archiver", None)
+    local_flags = build.get("flags", None)
+    local_defines = build.get("defines", None)
+
+    compiler = local_compiler if local_compiler else build["global_compiler"]
+    archiver = local_archiver if local_archiver else build["global_archiver"]
+    cxxflags = local_flags if local_flags else build["global_flags"]
+    defines = local_defines if local_defines else build["global_defines"]
+    defines = PrefixHashDefine(defines)
+    return compiler, archiver, cxxflags, defines
+
+
+def add_compile_rule(pfw: Writer, build: Dict, includes, extra_flags: StringList = None):
+    build_name = build["name"]
+
+    local_flags = build.get("flags", None)
+    local_defines = build.get("defines", None)
+    local_compiler = build.get("compiler", None)
+
+    compiler = local_compiler if local_compiler else build["global_compiler"]
+    cxx_flags = local_flags + extra_flags if local_flags else build["global_flags"]
+    defines = local_defines if local_defines else build["global_defines"]
+    defines = PrefixHashDefine(defines)
+    if extra_flags:
+        cxx_flags = extra_flags + cxx_flags
+
+    src_files = get_src_files(build)
+    obj_files = ToObjectFiles(src_files)
+    obj_files = prepend_paths(Path(build_name), obj_files)
+
+    file_pairs = zip(to_str(src_files), to_str(obj_files))
+    for src_file, obj_file in file_pairs:
+        pfw.build(
+            outputs=obj_file,
+            rule="compile",
+            inputs=src_file,
+            variables={
+                "compiler": compiler,
+                "includes": includes,
+                "flags": cxx_flags,
+                "defines": defines,
+            },
+        )
+        pfw.newline()
+
+    return obj_files
+
+
 class GCCBuilds:
     def build(self, build, parsed_toml, project_writer: Writer):
         build_name = build["name"]
         the_build = build["buildRule"]
-        project_dir = build["directory"]
         build_dir = build["build_dir"]
 
         build_path = build_dir / build_name
@@ -176,76 +241,16 @@ class GCCBuilds:
 
         return full_library_names
 
-    def add_compile_rule(self, pfw: Writer, build: Dict, parsed_toml, includes, extra_flags: StringList = None):
-        build_name = build["name"]
-        build_path = build["buildPath"]
-
-        local_flags = build.get("flags", None)
-        local_defines = build.get("defines", None)
-        local_compiler = build.get("compiler", None)
-
-        compiler = local_compiler if local_compiler else build["global_compiler"]
-        cxxflags = local_flags + extra_flags if local_flags else build["global_flags"]
-        defines = local_defines if local_defines else build["global_defines"]
-        defines = PrefixHashDefine(defines)
-        if extra_flags:
-            cxxflags = extra_flags + cxxflags
-
-        src_files = get_src_files(build)
-        obj_files = ToObjectFiles(src_files)
-        obj_files = prepend_paths(Path(build_name), obj_files)
-
-        file_pairs = zip(to_str(src_files), to_str(obj_files))
-        for src_file, obj_file in file_pairs:
-            pfw.build(
-                outputs=obj_file,
-                rule="compile",
-                inputs=src_file,
-                variables={
-                    "compiler": compiler,
-                    "includes": includes,
-                    "flags": cxxflags,
-                    "defines": defines,
-                },
-            )
-            pfw.newline()
-
-        return obj_files
-
-    def get_build_overrides(self, build:Dict, parsed_toml:Dict):
-        local_compiler = build.get("compiler", None)
-        local_archiver = build.get("archiver", None)
-        local_flags = build.get("flags", None)
-        local_defines = build.get("defines", None)
-
-        compiler = local_compiler if local_compiler else build["global_compiler"]
-        archiver = local_archiver if local_archiver else build["global_archiver"]
-        cxxflags = local_flags if local_flags else build["global_flags"]
-        defines = local_defines if local_defines else build["global_defines"]
-        defines = PrefixHashDefine(defines)
-        return compiler, archiver, cxxflags, defines
-
-    def get_includes_for_build(self, build:Dict, parsed_toml:Dict):
-        includes = set()
-        includes.update(get_include_paths(build))
-        includes.update(get_system_include_paths(build))
-        includes.update(get_quote_include_paths(build))
-        includes.update(get_required_include_information(build, parsed_toml))
-        includes = list(includes)
-        includes.sort()
-        return includes
-
     def build_static_library(self, pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
-        build_path = build["buildPath"]
 
-        _, archiver, cxxflags, defines = self.get_build_overrides(build, parsed_toml)
-        includes = self.get_includes_for_build(build, parsed_toml)
-        obj_files = self.add_compile_rule(pfw, build, parsed_toml, includes)
+        includes = get_includes_for_build(build, parsed_toml)
+        obj_files = add_compile_rule(pfw, build, includes)
 
         library_name = self.add_static_library_naming_convention(build["outputName"])
         relative_output_name = str(Path(build_name) / library_name)
 
+        _, archiver, cxx_flags, defines = get_build_overrides(build)
         pfw.build(
             outputs=relative_output_name,
             rule="archive",
@@ -253,7 +258,7 @@ class GCCBuilds:
             variables={
                 "archiver": archiver,
                 "includes": includes,
-                "flags": cxxflags,
+                "flags": cxx_flags,
                 "defines": defines,
             },
         )
@@ -265,12 +270,10 @@ class GCCBuilds:
 
     def build_executable(self, pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
-        build_path = build["buildPath"]
-        requires = build.get("requires", [])
 
-        compiler, _, cxxflags, defines = self.get_build_overrides(build, parsed_toml)
-        includes = self.get_includes_for_build(build, parsed_toml)
-        obj_files = self.add_compile_rule(pfw, build, parsed_toml, includes)
+        compiler, _, cxxflags, defines = get_build_overrides(build)
+        includes = get_includes_for_build(build, parsed_toml)
+        obj_files = add_compile_rule(pfw, build, includes)
         rpath = self.get_rpath(build, parsed_toml)
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(external_libraries_names)
@@ -320,16 +323,14 @@ class GCCBuilds:
 
     def build_dynamic_library(self, pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
-        requires = build.get("requires", [])
-        build_path = build["buildPath"]
 
         extra_flags = ["-DEXPORT_DLL_PUBLIC",
                        "-fvisibility=hidden",
                        "-fPIC"]
 
-        compiler, _, cxxflags, defines = self.get_build_overrides(build, parsed_toml)
-        includes = self.get_includes_for_build(build, parsed_toml)
-        obj_files = self.add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
+        compiler, _, cxxflags, defines = get_build_overrides(build)
+        includes = get_includes_for_build(build, parsed_toml)
+        obj_files = add_compile_rule(pfw, build, includes, extra_flags)
         rpath = self.get_rpath(build, parsed_toml)
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(external_libraries_names)
@@ -383,7 +384,7 @@ class GCCBuilds:
         if not requires:
             return []
 
-        build_names = [] # Used to prevent duplicates.
+        build_names = []  # Used to prevent duplicates.
         result = []
         for required in requires:
             the_dep = find_build(required, parsed_toml["builds"])
@@ -402,7 +403,7 @@ class GCCBuilds:
         if not requires:
             return [], []
 
-        build_names = [] # Used to prevent duplicates.
+        build_names = []  # Used to prevent duplicates.
         libraries = []
         library_paths = []
         for required in requires:
@@ -417,7 +418,6 @@ class GCCBuilds:
                 library_paths += the_dep.get("libraryPaths", [])
 
         return libraries, library_paths
-
 
     def get_rpath(self, build: Dict, parsed_toml: Dict):
         # Good blog post about rpath:
