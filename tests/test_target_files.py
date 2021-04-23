@@ -15,7 +15,7 @@ global_target_file = {
         {
             "name": "a",
             "buildRule": "exe",
-            "requires": ["b"],
+            "requires": ["b", "c"],
             "includePaths": ["a/include"],
             "srcDirs": ["a/src"],
             "outputName": "a"
@@ -34,6 +34,13 @@ global_target_file = {
             "localIncludePaths": ["b/local/include"],
             "outputName": "b"
         },
+        {
+            "name": "c",
+            "buildRule": "dynamicLib",
+            "includePaths": ["c/include"],
+            "srcDirs": ["c/src"],
+            "outputName": "c"
+        }
     ],
 }
 
@@ -101,7 +108,7 @@ def make_tmp_directory_structure():
 
 def find_str(string: str, paths: List[Path]):
     found = False
-    for p  in paths:
+    for p in paths:
         if string == str(p):
             found = True
             break
@@ -109,15 +116,18 @@ def find_str(string: str, paths: List[Path]):
 
 
 class TestTargetFiles(TestCase):
+    # We begin by covering the major functions for building static libraries.
+    #
     def test_includes_for_build(self):
         # Notes:
         #   + include paths are relative to build directory.
         build = setup_build(global_target_file, "a")
         result = get_includes_for_build(build, global_target_file)
 
-        self.assertEqual(len(result), 4)
+        self.assertEqual(len(result), 5)
         self.assertTrue("-I../../a/include" in result)
         self.assertTrue("-I../../b/include" in result)
+        self.assertTrue("-I../../c/include" in result)
         self.assertTrue("-isystem/usr/include" in result)
         self.assertTrue("-iquote../../b/local/include" in result)
 
@@ -171,3 +181,7 @@ class TestTargetFiles(TestCase):
             self.assertEqual(len(obj_files), 1)
             self.assertTrue(find_str("b/file_0.o", obj_files))
 
+    # Next we cover dynamic libraries.
+    #
+    def test_rpath(self):
+        pass

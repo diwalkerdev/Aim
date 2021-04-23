@@ -1,5 +1,5 @@
 import functools
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Callable
 from aim_build.utils import *
 from ninja_syntax import Writer
 from dataclasses import dataclass
@@ -15,6 +15,19 @@ ToObjectFiles = src_to_o
 FileExtensions = ["*.cpp", "*.cc", ".c"]
 
 
+# TODO: Should take version strings as well?
+def linux_add_static_library_naming_convention(library_name):
+    return f"lib{library_name}.a"
+
+
+def linux_add_dynamic_library_naming_convention(library_name):
+    return f"lib{library_name}.so"
+
+
+def linux_add_exe_naming_convention(exe_name):
+    return f"{exe_name}.exe"
+
+
 @dataclass
 class LibraryInformation:
     name: str
@@ -27,6 +40,10 @@ def find_build(build_name, builds):
     for build in builds:
         if build["name"] == build_name:
             return build
+
+
+def find_builds_of_type(build_type, builds):
+    return [build for build in builds if build["buildRule"] == build_type]
 
 
 def get_project_dir(build: Dict, target_file: Dict):
@@ -148,6 +165,7 @@ def get_external_libraries_information(build):
     library_paths = get_external_libraries_paths(build)
     return libraries, library_paths
 
+
 def add_compile_rule(pfw: Writer,
                      build: Dict,
                      target_file: Dict,
@@ -181,6 +199,35 @@ def add_compile_rule(pfw: Writer,
     return obj_files
 
 
+def get_rpath(build: Dict, parsed_toml: Dict):
+    # Good blog post about rpath:
+    # https://medium.com/@nehckl0/creating-relocatable-linux-executables-by-setting-rpath-with-origin-45de573a2e98
+    requires = build.get("requires", [])
+    library_paths = set()
+
+    # find_build_types("dynamicLib", parsed_toml["builds"])
+    # TODO: replace the below with the above.
+    for required in requires:
+        the_dep = find_build(required, parsed_toml["builds"])
+        if the_dep["buildRule"] == "dynamicLib":
+            library_paths.update([the_dep["name"]])
+
+    top_build_dir = Path(build["build_dir"])
+    build_dir = top_build_dir / build["name"]
+    library_paths = list(library_paths)
+    library_paths.sort()
+    library_paths = prepend_paths(top_build_dir, library_paths)
+    relative_paths = [
+        relpath(Path(lib_path), build_dir) for lib_path in library_paths
+    ]
+
+    relative_paths = [f"$$ORIGIN/{rel_path}" for rel_path in relative_paths]
+    relative_paths = ["$$ORIGIN"] + relative_paths
+
+    relative_paths_string = escape_path(":".join(relative_paths))
+    return f"-Wl,-rpath='{relative_paths_string}'"
+
+
 class GCCBuilds:
     def build(self, build, parsed_toml, project_writer: Writer):
         build_name = build["name"]
@@ -194,7 +241,7 @@ class GCCBuilds:
 
         if the_build == "staticLib":
             self.build_static_library(
-                project_writer, build, parsed_toml
+                project_writer, build, parsed_toml, linux_add_static_library_naming_convention
             )
         elif the_build == "exe":
             self.build_executable(
@@ -228,13 +275,17 @@ class GCCBuilds:
 
         return full_library_names
 
-    def build_static_library(self, pfw: Writer, build: Dict, parsed_toml: Dict):
+    def build_static_library(self,
+                             pfw: Writer,
+                             build: Dict,
+                             parsed_toml: Dict,
+                             lib_name_func: Callable[[str], str]):
         build_name = build["name"]
 
         includes = get_includes_for_build(build, parsed_toml)
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
 
-        library_name = self.add_static_library_naming_convention(build["outputName"])
+        library_name = lib_name_func(build["outputName"])
         relative_output_name = str(Path(build_name) / library_name)
 
         _, archiver, cxx_flags, defines = get_toolchain_and_flags(build, parsed_toml)
@@ -261,7 +312,7 @@ class GCCBuilds:
         compiler, _, cxxflags, defines = get_toolchain_and_flags(build, parsed_toml)
         includes = get_includes_for_build(build, parsed_toml)
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
-        rpath = self.get_rpath(build, parsed_toml)
+        rpath = get_rpath(build, parsed_toml)
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(external_libraries_names)
         external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
@@ -318,7 +369,7 @@ class GCCBuilds:
         compiler, _, cxxflags, defines = get_toolchain_and_flags(build, parsed_toml)
         includes = get_includes_for_build(build, parsed_toml)
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
-        rpath = self.get_rpath(build, parsed_toml)
+        rpath = get_rpath(build, parsed_toml)
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(external_libraries_names)
         external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
@@ -406,31 +457,6 @@ class GCCBuilds:
 
         return libraries, library_paths
 
-    def get_rpath(self, build: Dict, parsed_toml: Dict):
-        # Good blog post about rpath:
-        # https://medium.com/@nehckl0/creating-relocatable-linux-executables-by-setting-rpath-with-origin-45de573a2e98
-        requires = build.get("requires", [])
-        library_paths = set()
-
-        for required in requires:
-            the_dep = find_build(required, parsed_toml["builds"])
-            if the_dep["buildRule"] == "dynamicLib":
-                library_paths.update([the_dep["name"]])
-
-        build_dir = Path(build["build_dir"])
-        current_build_dir = build_dir / build["name"]
-        library_paths = list(library_paths)
-        library_paths.sort()
-        library_paths = prepend_paths(build_dir, library_paths)
-        relative_paths = [
-            relpath(Path(lib_path), current_build_dir) for lib_path in library_paths
-        ]
-
-        relative_paths = [f"$$ORIGIN/{rel_path}" for rel_path in relative_paths]
-        relative_paths = ["$$ORIGIN"] + relative_paths
-
-        relative_paths_string = escape_path(":".join(relative_paths))
-        return f"-Wl,-rpath='{relative_paths_string}'"
 
     def add_naming_convention(self, output_name, build_type):
         if build_type == "staticLib":
