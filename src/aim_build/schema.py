@@ -55,6 +55,7 @@ class AbsProjectDirPathChecker:
                 error(field, f"Directory does not exist: {str(directory)}")
                 break
 
+
 class RelProjectDirPathChecker:
     def __init__(self, project_dir):
         self.project_dir = project_dir
@@ -239,8 +240,8 @@ def target_schema(document, project_dir):
     pretty = pprint.PrettyPrinter(indent=2, width=100)
     # TODO: Handle schema errors. https://docs.python-cerberus.org/en/stable/errors.html
     if validator.errors:
-        for k,v in validator.errors.items():
-            if (k!= "builds"):
+        for k, v in validator.errors.items():
+            if k!= "builds":
                 print(f"Error for field \"{k}\"")
                 pretty.pprint(f"{v}")
                 print()

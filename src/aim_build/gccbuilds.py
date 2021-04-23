@@ -40,6 +40,7 @@ def get_src_files(build):
 
 
 def get_include_paths(build):
+    # TODO(DW): should this be buildPath.parent or build_dir?
     directory = build["buildPath"] / ".."
     include_paths = build.get("includePaths", [])
     include_paths = [Path(p) for p in include_paths]
@@ -116,9 +117,8 @@ def get_required_include_information(build, parsed_toml):
         quote_includes = relpaths(quote_includes, directory)
         quote_include_paths .update(quote_includes)
 
-        # TODO FIXME
         system_includes = the_dep.get("systemIncludePaths", [])
-        system_include_paths.update(system_include_paths)
+        system_include_paths.update(system_includes)
 
     include_paths = list(include_paths)
     system_include_paths = list(system_include_paths)
