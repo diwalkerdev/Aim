@@ -118,7 +118,7 @@ def target_schema(document, project_dir):
 
     schema = {
         "compiler": {"required": True, "type": "string"},
-        "ar": {"required": True, "type": "string"},
+        "archiver": {"required": True, "type": "string"},
         "compilerFrontend": {
             "required": True,
             "type": "string",

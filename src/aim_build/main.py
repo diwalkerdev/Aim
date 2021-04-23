@@ -175,11 +175,6 @@ def generate_flat_ninja_file(build_name, parsed_toml, project_dir, build_dir,arg
             current_build = build_info
             current_build["directory"] = project_dir
             current_build["build_dir"] = build_dir
-            current_build["global_flags"] = flags
-            current_build["global_defines"] = defines
-            current_build["global_compiler"] = compiler
-            current_build["global_archiver"] = archiver
-
 
             if frontend == "msvc":
                 # builder = msvcbuilds.MSVCBuilds(compiler, compiler_c, archiver)

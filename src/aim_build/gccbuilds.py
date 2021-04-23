@@ -144,31 +144,26 @@ def get_includes_for_build(build: Dict, parsed_toml: Dict):
     return includes
 
 
-def get_build_overrides(build: Dict):
+def get_toolchain_and_flags(build: Dict, target_file: Dict) -> Tuple[str, str, StringList, StringList]:
     local_compiler = build.get("compiler", None)
     local_archiver = build.get("archiver", None)
     local_flags = build.get("flags", None)
     local_defines = build.get("defines", None)
 
-    compiler = local_compiler if local_compiler else build["global_compiler"]
-    archiver = local_archiver if local_archiver else build["global_archiver"]
-    cxxflags = local_flags if local_flags else build["global_flags"]
-    defines = local_defines if local_defines else build["global_defines"]
+    compiler = local_compiler if local_compiler else target_file["compiler"]
+    archiver = local_archiver if local_archiver else target_file["archiver"]
+    cxx_flags = local_flags if local_flags else target_file["flags"]
+    defines = local_defines if local_defines else target_file["defines"]
     defines = PrefixHashDefine(defines)
-    return compiler, archiver, cxxflags, defines
+    return compiler, archiver, cxx_flags, defines
 
 
-def add_compile_rule(pfw: Writer, build: Dict, includes, extra_flags: StringList = None):
+def add_compile_rule(pfw: Writer,
+                     build: Dict,
+                     target_file: Dict, includes, extra_flags: StringList = None):
     build_name = build["name"]
 
-    local_flags = build.get("flags", None)
-    local_defines = build.get("defines", None)
-    local_compiler = build.get("compiler", None)
-
-    compiler = local_compiler if local_compiler else build["global_compiler"]
-    cxx_flags = local_flags + extra_flags if local_flags else build["global_flags"]
-    defines = local_defines if local_defines else build["global_defines"]
-    defines = PrefixHashDefine(defines)
+    compiler, _, cxx_flags, defines = get_toolchain_and_flags(build, target_file)
     if extra_flags:
         cxx_flags = extra_flags + cxx_flags
 
@@ -245,12 +240,12 @@ class GCCBuilds:
         build_name = build["name"]
 
         includes = get_includes_for_build(build, parsed_toml)
-        obj_files = add_compile_rule(pfw, build, includes)
+        obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
 
         library_name = self.add_static_library_naming_convention(build["outputName"])
         relative_output_name = str(Path(build_name) / library_name)
 
-        _, archiver, cxx_flags, defines = get_build_overrides(build)
+        _, archiver, cxx_flags, defines = get_toolchain_and_flags(build, parsed_toml)
         pfw.build(
             outputs=relative_output_name,
             rule="archive",
@@ -271,9 +266,9 @@ class GCCBuilds:
     def build_executable(self, pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
 
-        compiler, _, cxxflags, defines = get_build_overrides(build)
+        compiler, _, cxxflags, defines = get_toolchain_and_flags(build, parsed_toml)
         includes = get_includes_for_build(build, parsed_toml)
-        obj_files = add_compile_rule(pfw, build, includes)
+        obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
         rpath = self.get_rpath(build, parsed_toml)
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(external_libraries_names)
@@ -328,9 +323,9 @@ class GCCBuilds:
                        "-fvisibility=hidden",
                        "-fPIC"]
 
-        compiler, _, cxxflags, defines = get_build_overrides(build)
+        compiler, _, cxxflags, defines = get_toolchain_and_flags(build, parsed_toml)
         includes = get_includes_for_build(build, parsed_toml)
-        obj_files = add_compile_rule(pfw, build, includes, extra_flags)
+        obj_files = add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
         rpath = self.get_rpath(build, parsed_toml)
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(external_libraries_names)
