@@ -22,9 +22,23 @@ class LibraryInformation:
     type: str
 
 
-def get_src_files(build):
-    directory = build["directory"]
-    srcs = prepend_paths(directory, build["srcDirs"])
+def find_build(build_name, builds):
+    # Note, this should never fail, as required dependencies are checked by the schema.
+    for build in builds:
+        if build["name"] == build_name:
+            return build
+
+
+def get_project_dir(build: Dict, target_file: Dict):
+    root_dir = target_file["projectRoot"]
+    project_dir = build["build_dir"] / root_dir
+    return project_dir
+
+
+def get_src_files(build: Dict, target_file: Dict):
+    project_dir = get_project_dir(build, target_file)
+
+    srcs = prepend_paths(project_dir, build["srcDirs"])
     src_dirs = [path for path in srcs if path.is_dir()]
     explicit_src_files = [path for path in srcs if path.is_file()]
     src_files = []
@@ -34,36 +48,85 @@ def get_src_files(build):
 
     src_files += explicit_src_files
     assert src_files, f"Fail to find any source files in {to_str(src_dirs)}."
-    build_path = build["buildPath"] / ".."
+
+    build_path = build["build_dir"]
     src_files = relpaths(src_files, build_path)
     return src_files
 
 
-def get_include_paths(build):
-    # TODO(DW): should this be buildPath.parent or build_dir?
-    directory = build["buildPath"] / ".."
+def get_include_paths(build, directory):
     include_paths = build.get("includePaths", [])
     include_paths = [Path(p) for p in include_paths]
     abs_paths = [p for p in include_paths if p.is_absolute()]
     rel_paths = [p for p in include_paths if not p.is_absolute()]
     rel_paths = relpaths(rel_paths, directory)
 
-    includes = PrefixIncludePath(abs_paths) + PrefixIncludePath(rel_paths)
+    includes = abs_paths + rel_paths
     return includes
 
 
-def get_quote_include_paths(build):
-    directory = build["buildPath"] / ".."
+def get_quote_include_paths(build, directory):
     include_paths = build.get("localIncludePaths", [])
     includes = relpaths(include_paths, directory)
-    includes = PrefixQuoteIncludePath(includes)
     return includes
 
 
 def get_system_include_paths(build):
     system_include_paths = build.get("systemIncludePaths", [])
-    system_includes = PrefixSystemIncludePath(system_include_paths)
-    return system_includes
+    return system_include_paths
+
+
+def get_required_include_information(build: Dict, parsed_toml: Dict) -> StringList:
+    requires = [build["name"]] + build.get("requires", [])
+
+    include_paths = set()
+    system_include_paths = set()
+    quote_include_paths = set()
+    for required in requires:
+        the_dep = find_build(required, parsed_toml["builds"])
+
+        includes = get_include_paths(the_dep, build["build_dir"])
+        include_paths.update(includes)
+
+        quote_includes = get_quote_include_paths(the_dep, build["build_dir"])
+        quote_include_paths .update(quote_includes)
+
+        system_includes = get_system_include_paths(the_dep)
+        system_include_paths.update(system_includes)
+
+    include_paths = list(include_paths)
+    system_include_paths = list(system_include_paths)
+    quote_include_paths = list(quote_include_paths)
+    include_paths.sort()
+    system_include_paths.sort()
+    quote_include_paths.sort()
+
+    include_args = PrefixIncludePath(include_paths)
+    system_include_args = PrefixSystemIncludePath(system_include_paths)
+    quote_args = PrefixQuoteIncludePath(quote_include_paths)
+    return include_args + system_include_args + quote_args
+
+
+def get_includes_for_build(build: Dict, parsed_toml: Dict):
+    includes = set()
+    includes.update(get_required_include_information(build, parsed_toml))
+    includes = list(includes)
+    includes.sort()
+    return includes
+
+
+def get_toolchain_and_flags(build: Dict, target_file: Dict) -> Tuple[str, str, StringList, StringList]:
+    local_compiler = build.get("compiler", None)
+    local_archiver = build.get("archiver", None)
+    local_flags = build.get("flags", None)
+    local_defines = build.get("defines", None)
+
+    compiler = local_compiler if local_compiler else target_file["compiler"]
+    archiver = local_archiver if local_archiver else target_file["archiver"]
+    cxx_flags = local_flags if local_flags else target_file["flags"]
+    defines = local_defines if local_defines else target_file["defines"]
+    defines = PrefixHashDefine(defines)
+    return compiler, archiver, cxx_flags, defines
 
 
 def get_external_libraries_paths(build):
@@ -85,89 +148,18 @@ def get_external_libraries_information(build):
     library_paths = get_external_libraries_paths(build)
     return libraries, library_paths
 
-
-def find_build(build_name, builds):
-    # Note, this should never fail, as required dependencies are checked by the schema.
-    for build in builds:
-        if build["name"] == build_name:
-            return build
-
-
-def get_required_include_information(build, parsed_toml):
-    requires = build.get("requires", [])
-    if not requires:
-        return []
-
-    include_paths = set()
-    system_include_paths = set()
-    quote_include_paths = set()
-    for required in requires:
-        the_dep = find_build(required, parsed_toml["builds"])
-        directory = build["buildPath"] / ".."
-
-        includes = the_dep.get("includePaths", [])
-        includes = [Path(p) for p in includes]
-        abs_paths = [p for p in includes if p.is_absolute()]
-        rel_paths = [p for p in includes if not p.is_absolute()]
-        rel_paths = relpaths(rel_paths, directory)
-        includes = abs_paths + rel_paths
-        include_paths.update(includes)
-
-        quote_includes = the_dep.get("localIncludePaths", [])
-        quote_includes = relpaths(quote_includes, directory)
-        quote_include_paths .update(quote_includes)
-
-        system_includes = the_dep.get("systemIncludePaths", [])
-        system_include_paths.update(system_includes)
-
-    include_paths = list(include_paths)
-    system_include_paths = list(system_include_paths)
-    quote_include_paths = list(quote_include_paths)
-    include_paths.sort()
-    system_include_paths.sort()
-    quote_include_paths.sort()
-
-    include_args = PrefixIncludePath(include_paths)
-    system_include_args = PrefixSystemIncludePath(system_include_paths)
-    quote_args = PrefixQuoteIncludePath(quote_include_paths)
-    return include_args + system_include_args + quote_args
-
-
-def get_includes_for_build(build: Dict, parsed_toml: Dict):
-    includes = set()
-    includes.update(get_include_paths(build))
-    includes.update(get_system_include_paths(build))
-    includes.update(get_quote_include_paths(build))
-    includes.update(get_required_include_information(build, parsed_toml))
-    includes = list(includes)
-    includes.sort()
-    return includes
-
-
-def get_toolchain_and_flags(build: Dict, target_file: Dict) -> Tuple[str, str, StringList, StringList]:
-    local_compiler = build.get("compiler", None)
-    local_archiver = build.get("archiver", None)
-    local_flags = build.get("flags", None)
-    local_defines = build.get("defines", None)
-
-    compiler = local_compiler if local_compiler else target_file["compiler"]
-    archiver = local_archiver if local_archiver else target_file["archiver"]
-    cxx_flags = local_flags if local_flags else target_file["flags"]
-    defines = local_defines if local_defines else target_file["defines"]
-    defines = PrefixHashDefine(defines)
-    return compiler, archiver, cxx_flags, defines
-
-
 def add_compile_rule(pfw: Writer,
                      build: Dict,
-                     target_file: Dict, includes, extra_flags: StringList = None):
+                     target_file: Dict,
+                     includes: StringList,
+                     extra_flags: StringList = None):
     build_name = build["name"]
 
     compiler, _, cxx_flags, defines = get_toolchain_and_flags(build, target_file)
     if extra_flags:
         cxx_flags = extra_flags + cxx_flags
 
-    src_files = get_src_files(build)
+    src_files = get_src_files(build, target_file)
     obj_files = ToObjectFiles(src_files)
     obj_files = prepend_paths(Path(build_name), obj_files)
 

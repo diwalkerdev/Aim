@@ -152,13 +152,8 @@ def run_init(demo_zip: zipfile.ZipFile, subdir_name):
                 relative_path.write_bytes(the_file.read())
 
 
-def generate_flat_ninja_file(build_name, parsed_toml, project_dir, build_dir,args):
-    compiler = parsed_toml["compiler"]
-    archiver = parsed_toml["ar"]
+def generate_flat_ninja_file(build_name, parsed_toml, project_dir, build_dir, args):
     frontend = parsed_toml["compilerFrontend"]
-    flags = parsed_toml.get("flags", [])
-    flags = args + flags
-    defines = parsed_toml.get("defines", [])
     project_ninja = build_dir / "build.ninja"
 
     builds = parsed_toml["builds"]
