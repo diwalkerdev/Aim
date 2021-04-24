@@ -15,7 +15,7 @@ global_target_file = {
         {
             "name": "a",
             "buildRule": "exe",
-            "requires": ["b", "c", "r"],
+            "requires": ["b", "c", "r", "i"],
             "includePaths": ["a/include"],
             "srcDirs": ["a/src"],
             "outputName": "a",
@@ -44,7 +44,8 @@ global_target_file = {
         },
         {
             "name": "i",
-            "buildRule": "headerOnly"
+            "buildRule": "headerOnly",
+            "includePaths": ["i/include"]
         },
         {
             "name": "r",
@@ -135,10 +136,11 @@ class TestTargetFiles(TestCase):
         build = setup_build(global_target_file, "a")
         result = get_includes_for_build(build, global_target_file)
 
-        self.assertEqual(len(result), 5)
+        self.assertEqual(len(result), 6)
         self.assertTrue("-I../../a/include" in result)
         self.assertTrue("-I../../b/include" in result)
         self.assertTrue("-I../../c/include" in result)
+        self.assertTrue("-I../../i/include" in result)
         self.assertTrue("-isystem/usr/include" in result)
         self.assertTrue("-iquote../../b/local/include" in result)
 
@@ -255,3 +257,16 @@ class TestTargetFiles(TestCase):
 
         self.assertTrue(len(ref_library_paths), 1)
         self.assertTrue("-L/usr/lib/SpecialLibrary" in ref_library_paths)
+
+    def test_full_library_names(self):
+        build_a = setup_build(global_target_file, "a")
+
+        lib_info = get_required_library_information(build_a, global_target_file)
+
+        # Note, full library names are required as an implicit rule for the build.
+        full_library_names = get_full_library_name_convention(lib_info,
+                                                              linux_add_static_library_naming_convention,
+                                                              linux_add_dynamic_library_naming_convention)
+
+        self.assertTrue("libb.a" in full_library_names)
+        self.assertTrue("libc.so" in full_library_names)
