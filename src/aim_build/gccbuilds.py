@@ -150,8 +150,6 @@ def get_external_libraries_paths(build):
     directory = build["directory"]
     library_paths = build.get("libraryPaths", [])
     library_paths = prepend_paths(directory, library_paths)
-    # TODO: Remove this line. We add the prefix later.
-    # library_paths = PrefixLibraryPath(library_paths)
     return library_paths
 
 
