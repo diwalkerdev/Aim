@@ -18,7 +18,9 @@ global_target_file = {
             "requires": ["b", "c"],
             "includePaths": ["a/include"],
             "srcDirs": ["a/src"],
-            "outputName": "a"
+            "outputName": "a",
+            "libraryPaths": ["/usr/lib/SDL2"],
+            "libraries": ["SDL2", "SDL2_image"]
         },
         {
             "compiler": "gcc",
@@ -27,7 +29,6 @@ global_target_file = {
             "defines": ["EnableOtherFeature"],
             "name": "b",
             "buildRule": "staticLib",
-            "requires": ["c"],
             "srcDirs": ["b/src/file_0.c"],
             "includePaths": ["b/include"],
             "systemIncludePaths": ["/usr/include"],
@@ -184,4 +185,26 @@ class TestTargetFiles(TestCase):
     # Next we cover dynamic libraries.
     #
     def test_rpath(self):
-        pass
+        build_a = setup_build(global_target_file, "a")
+        paths = get_rpath(build_a, global_target_file)
+
+        # Note, $ and : must be escaped, hence the extra $s.
+        self.assertEqual(paths, "-Wl,-rpath=\'$$ORIGIN$:$$ORIGIN/../c\'")
+
+        build_b = setup_build(global_target_file, "b")
+        paths = get_rpath(build_b, global_target_file)
+
+        self.assertEqual(paths, "-Wl,-rpath=\'$$ORIGIN\'")
+
+    def test_external_library_information(self):
+        build_a = setup_build(global_target_file, "a")
+        external_libraries_names, external_libraries_paths = get_external_libraries_information(build_a)
+        external_libraries_names = PrefixLibrary(external_libraries_names)
+        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
+
+        self.assertEqual(len(external_libraries_names), 2)
+        self.assertTrue("-lSDL2" in external_libraries_names)
+        self.assertTrue("-lSDL2_image" in external_libraries_names)
+
+        self.assertEqual(len(external_libraries_paths), 1)
+        self.assertTrue("-L/usr/lib/SDL2" in external_libraries_paths)
