@@ -15,7 +15,7 @@ global_target_file = {
         {
             "name": "a",
             "buildRule": "exe",
-            "requires": ["b", "c"],
+            "requires": ["b", "c", "r"],
             "includePaths": ["a/include"],
             "srcDirs": ["a/src"],
             "outputName": "a",
@@ -41,6 +41,16 @@ global_target_file = {
             "includePaths": ["c/include"],
             "srcDirs": ["c/src"],
             "outputName": "c"
+        },
+        {
+            "name": "i",
+            "buildRule": "headerOnly"
+        },
+        {
+            "name": "r",
+            "buildRule": "libraryReference",
+            "libraries": ["specialLibrary"],
+            "libraryPaths": ["/usr/lib/SpecialLibrary"]
         }
     ],
 }
@@ -208,3 +218,40 @@ class TestTargetFiles(TestCase):
 
         self.assertEqual(len(external_libraries_paths), 1)
         self.assertTrue("-L/usr/lib/SDL2" in external_libraries_paths)
+
+    def test_required_library_information(self):
+        build_a = setup_build(global_target_file, "a")
+
+        # Note, get_required_library_information ignores headerOnly and LibraryReference build rules.
+        lib_info = get_required_library_information(build_a, global_target_file)
+
+        self.assertEqual(lib_info[0].name, "b")
+        self.assertEqual(lib_info[0].path, "b")
+        self.assertEqual(lib_info[0].type, "staticLib")
+
+        self.assertEqual(lib_info[1].name, "c")
+        self.assertEqual(lib_info[1].path, "c")
+        self.assertEqual(lib_info[1].type, "dynamicLib")
+
+        requires_libraries = PrefixLibrary([info.name for info in lib_info])
+        requires_library_paths = PrefixLibraryPath([info.path for info in lib_info])
+
+        # Note: Is this correct?
+        self.assertTrue("-lb" in requires_libraries)
+        self.assertTrue("-lc" in requires_libraries)
+
+        self.assertTrue("-Lb" in requires_library_paths)
+        self.assertTrue("-Lc" in requires_library_paths)
+
+    def test_library_reference(self):
+        build_a = setup_build(global_target_file, "a")
+
+        ref_libraries, ref_library_paths = get_reference_library_information(build_a, global_target_file)
+        ref_libraries = PrefixLibrary(ref_libraries)
+        ref_library_paths = PrefixLibraryPath(ref_library_paths)
+
+        self.assertTrue(len(ref_libraries), 1)
+        self.assertTrue("-lspecialLibrary" in ref_libraries)
+
+        self.assertTrue(len(ref_library_paths), 1)
+        self.assertTrue("-L/usr/lib/SpecialLibrary" in ref_library_paths)

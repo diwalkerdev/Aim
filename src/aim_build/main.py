@@ -255,8 +255,9 @@ def run_list(target_path):
             if build["buildRule"] in ["libraryReference", "headerOnly"]:
                 output_name = "n.a."
             else:
-                output_name = builder.add_naming_convention(
-                    build["outputName"], build["buildRule"]
+                output_name = gccbuilds.add_naming_convention(
+                    build["outputName"],
+                    build["buildRule"]
                 )
             row = [number, build["name"], build["buildRule"], output_name]
             table.append(row)
