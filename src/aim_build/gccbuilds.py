@@ -14,8 +14,6 @@ PrefixLibrary = functools.partial(prefix, "-l")
 PrefixHashDefine = functools.partial(prefix, "-D")
 ToObjectFiles = src_to_o
 
-FileExtensions = ["*.cpp", "*.cxx", "*.cc", ".c"]
-
 
 # TODO: Should take version strings as well?
 def linux_add_static_library_naming_convention(library_name: str) -> str:
@@ -35,31 +33,6 @@ class LibraryInformation:
     name: str
     path: str
     type: str
-
-
-def get_project_dir(build: Dict, target_file: Dict):
-    root_dir = target_file["projectRoot"]
-    project_dir = build["build_dir"] / root_dir
-    return project_dir
-
-
-def get_src_files(build: Dict, target_file: Dict) -> List[PurePath]:
-    project_dir = get_project_dir(build, target_file)
-
-    srcs = prepend_paths(project_dir, build["srcDirs"])
-    src_dirs = [path for path in srcs if path.is_dir()]
-    explicit_src_files = [path for path in srcs if path.is_file()]
-    src_files = []
-    for glob_pattern in FileExtensions:
-        glob_files = flatten(glob(glob_pattern, src_dirs))
-        src_files += glob_files
-
-    src_files += explicit_src_files
-    assert src_files, f"Fail to find any source files in {to_str(src_dirs)}."
-
-    build_path = build["build_dir"]
-    src_files = relpaths(src_files, build_path)
-    return src_files
 
 
 def get_quote_include_paths(build: Dict, build_dir: Path) -> PathList:
@@ -135,6 +108,11 @@ def get_external_libraries_information(build: Dict) -> Tuple[StringList, PathLis
     return libraries, library_paths
 
 
+def get_src_for_build(build: Dict, parsed_toml: Dict) -> List[PurePosixPath]:
+    files = commonbuilds.get_src_files(build, parsed_toml)
+    return convert_strings_to_paths(files)
+
+
 def add_compile_rule(writer: Writer,
                      build: Dict,
                      target_file: Dict,
@@ -148,7 +126,7 @@ def add_compile_rule(writer: Writer,
     if extra_flags:
         cxx_flags = extra_flags + cxx_flags
 
-    src_files = get_src_files(build, target_file)
+    src_files = get_src_for_build(build, target_file)
     obj_files = ToObjectFiles(src_files)
     obj_files = prepend_paths(Path(build_name), obj_files)
 
@@ -306,7 +284,7 @@ class GCCBuilds:
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
 
         library_name = lib_name_func(build["outputName"])
-        relative_output_name = str(Path(build_name) / library_name)
+        relative_output_name = str(PurePosixPath(build_name) / library_name)
 
         _, archiver, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
         defines = PrefixHashDefine(defines)

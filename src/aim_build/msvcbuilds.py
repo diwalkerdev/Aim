@@ -1,8 +1,8 @@
 import functools
 from typing import Dict
 from ninja_syntax import Writer
-from pathlib import PureWindowsPath
-
+from pathlib import PureWindowsPath, PurePosixPath
+from typing import Callable
 from aim_build.msvcbuildrules import *
 from aim_build.utils import *
 from aim_build import commonbuilds
@@ -10,7 +10,21 @@ from aim_build import commonbuilds
 PrefixIncludePath = functools.partial(prefix, "/I")
 PrefixLibraryPath = functools.partial(prefix, "/LIBPATH:")
 PrefixLibrary = functools.partial(prefix, "")
+PrefixHashDefine = functools.partial(prefix, "/D")
 ToObjectFiles = src_to_obj
+
+
+# TODO: Should take version strings as well?
+def windows_add_static_library_naming_convention(library_name: str) -> str:
+    return f"lib{library_name}.a"
+
+
+def windows_add_dynamic_library_naming_convention(library_name: str) -> str:
+    return f"lib{library_name}.so"
+
+
+def windows_add_exe_naming_convention(exe_name: str) -> str:
+    return f"{exe_name}.exe"
 
 
 def implicit_library_inputs(libraries):
@@ -48,15 +62,6 @@ def convert_dlls_to_lib(libraries):
     return new_libraries
 
 
-def get_src_files(build):
-    directory = build["directory"]
-    src_dirs = build["srcDirs"]
-    src_paths = prepend_paths(directory, src_dirs)
-    src_files = flatten(glob("*.cpp", src_paths)) + flatten(glob("*.c", src_paths))
-    assert src_files, "Fail to find any source files."
-    return src_files
-
-
 def get_library_paths(build):
     directory = build["directory"]
     library_paths = build.get("libraryPaths", [])
@@ -78,8 +83,8 @@ def get_third_party_library_information(build):
     return third_libraries
 
 
-def convert_posix_to_windows(paths: StringList):
-    return [path.replace("/", "\\") for path in paths]
+def convert_posix_to_windows(paths: Union[StringList, List[PurePosixPath]]):
+    return [str(path).replace("/", "\\") for path in paths]
 
 
 def convert_strings_to_paths(paths: StringList):
@@ -109,94 +114,115 @@ def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
     return include_args
 
 
+def get_src_for_build(build:Dict, parsed_toml: Dict) -> List[PureWindowsPath]:
+    files = commonbuilds.get_src_files(build, parsed_toml)
+    return convert_strings_to_paths(files)
+
+
+def add_compile_rule(writer: Writer,
+                     build: Dict,
+                     target_file: Dict,
+                     includes: StringList,
+                     extra_flags: StringList = None):
+    build_name = build["name"]
+
+    compiler, _, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, target_file)
+    defines = PrefixHashDefine(defines)
+
+    if extra_flags:
+        cxx_flags = extra_flags + cxx_flags
+
+    src_files = get_src_for_build(build, target_file)
+    obj_files = ToObjectFiles(src_files)
+    obj_files = prepend_paths(PureWindowsPath(build_name), obj_files)
+    obj_files = convert_posix_to_windows(obj_files)
+
+    file_pairs = zip(to_str(src_files), to_str(obj_files))
+    for src_file, obj_file in file_pairs:
+        writer.build(
+            outputs=obj_file,
+            rule="compile",
+            inputs=src_file,
+            variables={
+                "compiler": compiler,
+                "includes": includes,
+                "flags": cxx_flags,
+                "defines": defines,
+            },
+        )
+        writer.newline()
+
+    return obj_files
+
+
 class MSVCBuilds:
     def __init__(self, cxx_compiler, c_compiler, archiver):
         self.cxx_compiler = cxx_compiler
         self.c_compiler = c_compiler
         self.archiver = archiver
 
-    def add_rules(self, build):
-        directory = build["directory"]
-        ninja_path = directory / "rules.ninja"
-        with ninja_path.open("w+") as ninja_file:
-            writer = Writer(ninja_file)
-            add_compile(writer)
-            add_ar(writer)
-            add_exe(writer)
-            add_shared(writer)
-
-    def build(self, build):
-        the_build = build["buildRule"]
-
+    def build(self, build, parsed_toml, ninja_writer: Writer, args):
+        # TODO forward args
         build_name = build["name"]
-        project_dir = build["directory"]
+        the_build = build["buildRule"]
+        build_dir = build["build_dir"]
 
-        build_path = project_dir / build_name
+        build_path = build_dir / build_name
         build_path.mkdir(parents=True, exist_ok=True)
 
-        ninja_path = build_path / "build.ninja"
         build["buildPath"] = build_path
 
-        self.add_rules(build)
-
-        with ninja_path.open("w+") as ninja_file:
-            ninja_writer = Writer(ninja_file)
-            rule_path = (project_dir / "rules.ninja").resolve()
-            ninja_writer.include(escape_path(str(rule_path)))
-            ninja_writer.newline()
-
-            if the_build == "staticLib":
-                self.build_static_library(ninja_writer, build)
-            elif the_build == "exe":
-                self.build_executable(ninja_writer, build)
-            elif the_build == "dynamicLib":
-                self.build_dynamic_library(ninja_writer, build)
-            else:
-                raise RuntimeError(f"Unknown build type {the_build}.")
-
-    def add_compile_rule(self, nfw: Writer, build: Dict):
-        cxxflags = build["flags"]
-        defines = build["defines"]
-
-        src_files = get_src_files(build)
-        includes = commonbuilds.get_include_paths(build)
-
-        # Its very important to specify the absolute path to the obj files.
-        # This prevents recompilation of files when an exe links against a library.
-        # Without the absolute path to the obj files, it would build the files again
-        # in the current (exe's) build location.
-        build_path = build["buildPath"]
-        obj_files = ToObjectFiles(src_files)
-        obj_files = prepend_paths(build_path, obj_files)
-
-        file_pairs = zip(to_str(src_files), to_str(obj_files))
-        for src_file, obj_file in file_pairs:
-            nfw.build(
-                outputs=obj_file,
-                rule="compile",
-                inputs=src_file,
-                variables={
-                    "compiler": self.cxx_compiler,
-                    "includes": includes,
-                    "flags": cxxflags,
-                    "defines": defines,
-                },
+        if the_build == "staticLib":
+            self.build_static_library(
+                ninja_writer, build, parsed_toml, windows_add_static_library_naming_convention
             )
-            nfw.newline()
+        elif the_build == "exe":
+            self.build_executable(
+                ninja_writer, build, parsed_toml
+            )
+        elif the_build == "dynamicLib":
+            self.build_dynamic_library(
+                ninja_writer, build, parsed_toml
+            )
+        elif the_build == "headerOnly":
+            pass
+        elif the_build == "libraryReference":
+            pass
+        else:
+            raise RuntimeError(f"Unknown build type {the_build}.")
 
-        return obj_files
-
-    def build_static_library(self, nfw: Writer, build: Dict):
+    @staticmethod
+    def build_static_library(pfw: Writer,
+                             build: Dict,
+                             parsed_toml: Dict,
+                             lib_name_func: Callable[[str], str]):
         build_name = build["name"]
-        library_name = build["outputName"]
 
-        obj_files = self.add_compile_rule(nfw, build)
+        includes = get_includes_for_build(build, parsed_toml)
+        obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
 
-        nfw.build(outputs=library_name, rule="ar", inputs=to_str(obj_files))
-        nfw.newline()
+        library_name = lib_name_func(build["outputName"])
+        relative_output_name = str(PureWindowsPath(build_name) / library_name)
 
-        nfw.build(rule="phony", inputs=library_name, outputs=build_name)
-        nfw.newline()
+        _, archiver, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        defines = PrefixHashDefine(defines)
+
+        pfw.build(
+            outputs=relative_output_name,
+            rule="archive",
+            inputs=to_str(obj_files),
+            variables={
+                "archiver": archiver,
+                "includes": includes,
+                "flags": cxx_flags,
+                "defines": defines,
+            },
+        )
+
+        pfw.newline()
+        pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
+        pfw.build(rule="phony", inputs=library_name, outputs=build_name)
+        pfw.newline()
 
     def build_executable(self, nfw, build: Dict):
         build_name = build["name"]

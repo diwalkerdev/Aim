@@ -121,7 +121,7 @@ def make_tmp_directory_structure():
     return tmp_dir
 
 
-def find_str(string: str, paths: List[Path]):
+def find_str(string: str, paths: List[PurePath]):
     found = False
     for p in paths:
         if string == str(p):
@@ -174,30 +174,32 @@ class TestTargetFiles(TestCase):
         tmp_dir = make_tmp_directory_structure()
         with tmp_dir:
             build_a = setup_build(global_target_file, "a", tmp_dir.name)
-            paths = get_src_files(build_a, global_target_file)
-
-            obj_files = ToObjectFiles(paths)
-            obj_files = prepend_paths(Path(build_a["name"]), obj_files)
+            paths = get_src_for_build(build_a, global_target_file)
 
             self.assertEqual(len(paths), 2)
-            self.assertTrue(find_str("../../a/src/file_0.cpp", paths))
-            self.assertTrue(find_str("../../a/src/file_1.cpp", paths))
-
-            self.assertEqual(len(obj_files), 2)
-            self.assertTrue(find_str("a/file_0.o", obj_files))
-            self.assertTrue(find_str("a/file_1.o", obj_files))
-
-            build_b = setup_build(global_target_file, "b", tmp_dir.name)
-            paths = get_src_files(build_b, global_target_file)
+            self.assertTrue(find_str("..\\..\\a\\src\\file_0.cpp", paths))
+            self.assertTrue(find_str("..\\..\\a\\src\\file_1.cpp", paths))
 
             obj_files = ToObjectFiles(paths)
-            obj_files = prepend_paths(Path(build_b["name"]), obj_files)
+            obj_files = prepend_paths(PureWindowsPath(build_a["name"]), obj_files)
+            obj_files = convert_posix_to_windows(obj_files)
+
+            self.assertEqual(len(obj_files), 2)
+            self.assertTrue(find_str("a\\file_0.obj", obj_files))
+            self.assertTrue(find_str("a\\file_1.obj", obj_files))
+
+            build_b = setup_build(global_target_file, "b", tmp_dir.name)
+            paths = get_src_for_build(build_b, global_target_file)
 
             self.assertEqual(len(paths), 1)
-            self.assertTrue(find_str("../../b/src/file_0.c", paths))
+            self.assertTrue(find_str("..\\..\\b\\src\\file_0.c", paths))
+
+            obj_files = ToObjectFiles(paths)
+            obj_files = prepend_paths(PureWindowsPath(build_b["name"]), obj_files)
+            obj_files = convert_posix_to_windows(obj_files)
 
             self.assertEqual(len(obj_files), 1)
-            self.assertTrue(find_str("b/file_0.o", obj_files))
+            self.assertTrue(find_str("b\\file_0.obj", obj_files))
 
     # Next we cover dynamic libraries.
     #

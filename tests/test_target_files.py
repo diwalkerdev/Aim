@@ -173,10 +173,10 @@ class TestTargetFiles(TestCase):
         tmp_dir = make_tmp_directory_structure()
         with tmp_dir:
             build_a = setup_build(global_target_file, "a", tmp_dir.name)
-            paths = get_src_files(build_a, global_target_file)
+            paths = get_src_for_build(build_a, global_target_file)
 
             obj_files = ToObjectFiles(paths)
-            obj_files = prepend_paths(Path(build_a["name"]), obj_files)
+            obj_files = prepend_paths(PurePosixPath(build_a["name"]), obj_files)
 
             self.assertEqual(len(paths), 2)
             self.assertTrue(find_str("../../a/src/file_0.cpp", paths))
@@ -187,10 +187,10 @@ class TestTargetFiles(TestCase):
             self.assertTrue(find_str("a/file_1.o", obj_files))
 
             build_b = setup_build(global_target_file, "b", tmp_dir.name)
-            paths = get_src_files(build_b, global_target_file)
+            paths = get_src_for_build(build_b, global_target_file)
 
             obj_files = ToObjectFiles(paths)
-            obj_files = prepend_paths(Path(build_b["name"]), obj_files)
+            obj_files = prepend_paths(PurePosixPath(build_b["name"]), obj_files)
 
             self.assertEqual(len(paths), 1)
             self.assertTrue(find_str("../../b/src/file_0.c", paths))
