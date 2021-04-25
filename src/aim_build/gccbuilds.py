@@ -170,7 +170,11 @@ def get_rpath(build: Dict, parsed_toml: Dict) -> str:
 
 
 class GCCBuilds:
-    def build(self, build, parsed_toml, ninja_writer: Writer, args):
+    def build(self, 
+            build: Dict, 
+            parsed_toml: Dict,
+            ninja_writer: Writer, 
+            args):
         # TODO forward args
         build_name = build["name"]
         the_build = build["buildRule"]

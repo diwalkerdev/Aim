@@ -1,6 +1,6 @@
 projectRoot = "../../"
 compiler = "clang-cl"
-ar = "llvm-ar"
+archiver = "llvm-ar"
 compilerFrontend="msvc"
 
 flags = [

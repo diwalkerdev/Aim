@@ -171,12 +171,11 @@ def add_compile_rule(writer: Writer,
 
 
 class MSVCBuilds:
-    def __init__(self, cxx_compiler, c_compiler, archiver):
-        self.cxx_compiler = cxx_compiler
-        self.c_compiler = c_compiler
-        self.archiver = archiver
-
-    def build(self, build, parsed_toml, ninja_writer: Writer, args):
+    def build(self, 
+            build: Dict, 
+            parsed_toml: Dict,
+            ninja_writer: Writer, 
+            args):
         # TODO forward args
         build_name = build["name"]
         the_build = build["buildRule"]
@@ -240,9 +239,9 @@ class MSVCBuilds:
         pfw.newline()
 
     @staticmethod
-    def build_exe_library(pfw: Writer,
-                              build: Dict,
-                              parsed_toml: Dict):
+    def build_executable(pfw: Writer,
+                         build: Dict,
+                         parsed_toml: Dict):
         build_name = build["name"]
 
         extra_flags = []

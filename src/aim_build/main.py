@@ -7,7 +7,7 @@ import toml
 from aim_build.common import DEMO_ZIP_FILE_NAME
 from aim_build import gccbuilds
 from aim_build import msvcbuilds
-from aim_build import osxbuilds
+#from aim_build import osxbuilds
 from aim_build.schema import target_schema
 from aim_build.utils import *
 from aim_build.version import __version__
@@ -172,8 +172,7 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
             current_build["build_dir"] = build_dir
 
             if frontend == "msvc":
-                # builder = msvcbuilds.MSVCBuilds(compiler, compiler_c, archiver)
-                assert False, "MSVC frontend is currently not supported."
+                builder = msvcbuilds.MSVCBuilds()
             elif frontend == "osx":
                 # builder = osxbuilds.OsxBuilds()
                 assert False, "OSX frontend is currently not supported."
@@ -258,7 +257,9 @@ def run_list(target_path):
             # static_convention_func = None
             # dynamic_convection_func = None
             # exe_convention_func = None
-            assert False, "MSVC frontend is currently not supported."
+            static_convention_func = msvcbuilds.windows_add_static_library_naming_convention
+            dynamic_convection_func = msvcbuilds.windows_add_dynamic_library_naming_convention
+            exe_convention_func = msvcbuilds.windows_add_exe_naming_convention
         elif frontend == "osx":
             # static_convention_func = None
             # dynamic_convection_func = None

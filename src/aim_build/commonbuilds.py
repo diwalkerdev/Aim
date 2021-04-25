@@ -47,8 +47,8 @@ def get_toolchain_and_flags(build: Dict, target_file: Dict) -> Tuple[str, str, S
 
     compiler = local_compiler if local_compiler else target_file["compiler"]
     archiver = local_archiver if local_archiver else target_file["archiver"]
-    cxx_flags = local_flags if local_flags else target_file["flags"]
-    defines = local_defines if local_defines else target_file["defines"]
+    cxx_flags = local_flags if local_flags else target_file.get("flags", [])
+    defines = local_defines if local_defines else target_file.get("defines", [])
     return compiler, archiver, cxx_flags, defines
 
 
