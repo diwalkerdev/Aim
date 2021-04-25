@@ -147,57 +147,57 @@ class TestTargetFiles(TestCase):
         self.assertTrue("/IC:\\include" in result)
         self.assertTrue("/I..\\..\\b\\local\\include" in result)
 
-    # def test_toolchain_and_flags(self):
-    #     build = setup_build(global_target_file, "a")
-    #     cxx, ar, cxx_flags, defines = get_toolchain_and_flags(build, global_target_file)
-    #
-    #     self.assertEqual(cxx, "clang-cl")
-    #     self.assertEqual(ar, "clang-ar")
-    #     self.assertEqual(cxx_flags, ["/std=c++17", "/Zi"])
-    #     self.assertEqual(defines, ["/DEnableFeature"])
-    #
-    # def test_toolchain_and_flags_with_local_overrides(self):
-    #     build = setup_build(global_target_file, "b")
-    #     cxx, ar, cxx_flags, defines = get_toolchain_and_flags(build, global_target_file)
-    #
-    #     # Note, these overrides don't make any sense, but it is ok since we're not actually building anything
-    #     # so it doesn't matter.
-    #     self.assertEqual(cxx, "gcc")
-    #     self.assertEqual(ar, "gcc-ar")
-    #     self.assertEqual(cxx_flags, ["/std=c99"])
-    #     self.assertEqual(defines, ["/DEnableOtherFeature"])
-    #
-    # def test_get_src_files(self):
-    #     # Notes:
-    #     #   + src files are relative to build directory.
-    #     #   + srcDirs accepts directories or specific src files.
-    #     tmp_dir = make_tmp_directory_structure()
-    #     with tmp_dir:
-    #         build_a = setup_build(global_target_file, "a", tmp_dir.name)
-    #         paths = get_src_files(build_a, global_target_file)
-    #
-    #         obj_files = ToObjectFiles(paths)
-    #         obj_files = prepend_paths(Path(build_a["name"]), obj_files)
-    #
-    #         self.assertEqual(len(paths), 2)
-    #         self.assertTrue(find_str("../../a/src/file_0.cpp", paths))
-    #         self.assertTrue(find_str("../../a/src/file_1.cpp", paths))
-    #
-    #         self.assertEqual(len(obj_files), 2)
-    #         self.assertTrue(find_str("a/file_0.o", obj_files))
-    #         self.assertTrue(find_str("a/file_1.o", obj_files))
-    #
-    #         build_b = setup_build(global_target_file, "b", tmp_dir.name)
-    #         paths = get_src_files(build_b, global_target_file)
-    #
-    #         obj_files = ToObjectFiles(paths)
-    #         obj_files = prepend_paths(Path(build_b["name"]), obj_files)
-    #
-    #         self.assertEqual(len(paths), 1)
-    #         self.assertTrue(find_str("../../b/src/file_0.c", paths))
-    #
-    #         self.assertEqual(len(obj_files), 1)
-    #         self.assertTrue(find_str("b/file_0.o", obj_files))
+    def test_toolchain_and_flags(self):
+        build = setup_build(global_target_file, "a")
+        cxx, ar, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, global_target_file)
+
+        self.assertEqual(cxx, "clang-cl")
+        self.assertEqual(ar, "clang-ar")
+        self.assertEqual(cxx_flags, ["/std:c++17", "/Zi"])
+        self.assertEqual(defines, ["EnableFeature"])
+
+    def test_toolchain_and_flags_with_local_overrides(self):
+        build = setup_build(global_target_file, "b")
+        cxx, ar, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, global_target_file)
+
+        # Note, these overrides don't make any sense, but it is ok since we're not actually building anything
+        # so it doesn't matter.
+        self.assertEqual(cxx, "gcc")
+        self.assertEqual(ar, "gcc-ar")
+        self.assertEqual(cxx_flags, ["/std=c99"])
+        self.assertEqual(defines, ["EnableOtherFeature"])
+
+    def test_get_src_files(self):
+        # Notes:
+        #   + src files are relative to build directory.
+        #   + srcDirs accepts directories or specific src files.
+        tmp_dir = make_tmp_directory_structure()
+        with tmp_dir:
+            build_a = setup_build(global_target_file, "a", tmp_dir.name)
+            paths = get_src_files(build_a, global_target_file)
+
+            obj_files = ToObjectFiles(paths)
+            obj_files = prepend_paths(Path(build_a["name"]), obj_files)
+
+            self.assertEqual(len(paths), 2)
+            self.assertTrue(find_str("../../a/src/file_0.cpp", paths))
+            self.assertTrue(find_str("../../a/src/file_1.cpp", paths))
+
+            self.assertEqual(len(obj_files), 2)
+            self.assertTrue(find_str("a/file_0.o", obj_files))
+            self.assertTrue(find_str("a/file_1.o", obj_files))
+
+            build_b = setup_build(global_target_file, "b", tmp_dir.name)
+            paths = get_src_files(build_b, global_target_file)
+
+            obj_files = ToObjectFiles(paths)
+            obj_files = prepend_paths(Path(build_b["name"]), obj_files)
+
+            self.assertEqual(len(paths), 1)
+            self.assertTrue(find_str("../../b/src/file_0.c", paths))
+
+            self.assertEqual(len(obj_files), 1)
+            self.assertTrue(find_str("b/file_0.o", obj_files))
 
     # Next we cover dynamic libraries.
     #

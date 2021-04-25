@@ -42,7 +42,7 @@ def suffix(the_suffix, paths) -> StringList:
     return [str(x) + the_suffix for x in paths]
 
 
-def prepend_paths(base_path: Path, other_paths: Union[PathList, StringList]):
+def prepend_paths(base_path: PurePath, other_paths: Union[List[PurePath], StringList]):
     # Don't need to check if `the_path` is absolute. If it is, the the result of `base_path / the_path` is just the
     # `the_path`. So it does the right thing, even though you might not expect it.
     return [base_path / the_path for the_path in other_paths]

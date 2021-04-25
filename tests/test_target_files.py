@@ -118,7 +118,7 @@ def make_tmp_directory_structure():
     return tmp_dir
 
 
-def find_str(string: str, paths: List[Path]):
+def find_str(string: str, paths: List[PurePath]):
     found = False
     for p in paths:
         if string == str(p):
@@ -145,22 +145,26 @@ class TestTargetFiles(TestCase):
         self.assertTrue("-iquote../../b/local/include" in result)
 
     def test_toolchain_and_flags(self):
+        # Note, get_toolchain_and_flags doesn't automatically add the prefix as this is build dependent.
+
         build = setup_build(global_target_file, "a")
-        cxx, ar, cxx_flags, defines = get_toolchain_and_flags(build, global_target_file)
+        cxx, ar, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, global_target_file)
 
         self.assertEqual(cxx, "g++")
         self.assertEqual(ar, "ar")
         self.assertEqual(cxx_flags, ["-std=c++17", "-Wall"])
-        self.assertEqual(defines, ["-DEnableFeature"])
+        self.assertEqual(defines, ["EnableFeature"])
 
     def test_toolchain_and_flags_with_local_overrides(self):
+        # Note, get_toolchain_and_flags doesn't automatically add the prefix as this is build dependent.
+
         build = setup_build(global_target_file, "b")
-        cxx, ar, cxx_flags, defines = get_toolchain_and_flags(build, global_target_file)
+        cxx, ar, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, global_target_file)
 
         self.assertEqual(cxx, "gcc")
         self.assertEqual(ar, "gcc-ar")
         self.assertEqual(cxx_flags, ["-std=c99"])
-        self.assertEqual(defines, ["-DEnableOtherFeature"])
+        self.assertEqual(defines, ["EnableOtherFeature"])
 
     def test_get_src_files(self):
         # Notes:

@@ -43,7 +43,7 @@ def get_project_dir(build: Dict, target_file: Dict):
     return project_dir
 
 
-def get_src_files(build: Dict, target_file: Dict) -> PathList:
+def get_src_files(build: Dict, target_file: Dict) -> List[PurePath]:
     project_dir = get_project_dir(build, target_file)
 
     srcs = prepend_paths(project_dir, build["srcDirs"])
@@ -116,20 +116,6 @@ def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
     return include_args + system_include_args + quote_args
 
 
-def get_toolchain_and_flags(build: Dict, target_file: Dict) -> Tuple[str, str, StringList, StringList]:
-    local_compiler = build.get("compiler", None)
-    local_archiver = build.get("archiver", None)
-    local_flags = build.get("flags", None)
-    local_defines = build.get("defines", None)
-
-    compiler = local_compiler if local_compiler else target_file["compiler"]
-    archiver = local_archiver if local_archiver else target_file["archiver"]
-    cxx_flags = local_flags if local_flags else target_file["flags"]
-    defines = local_defines if local_defines else target_file["defines"]
-    defines = PrefixHashDefine(defines)
-    return compiler, archiver, cxx_flags, defines
-
-
 def get_external_libraries_paths(build: Dict) -> PathList:
     directory = build["directory"]
     library_paths = build.get("libraryPaths", [])
@@ -156,7 +142,9 @@ def add_compile_rule(writer: Writer,
                      extra_flags: StringList = None):
     build_name = build["name"]
 
-    compiler, _, cxx_flags, defines = get_toolchain_and_flags(build, target_file)
+    compiler, _, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, target_file)
+    defines = PrefixHashDefine(defines)
+
     if extra_flags:
         cxx_flags = extra_flags + cxx_flags
 
@@ -320,7 +308,9 @@ class GCCBuilds:
         library_name = lib_name_func(build["outputName"])
         relative_output_name = str(Path(build_name) / library_name)
 
-        _, archiver, cxx_flags, defines = get_toolchain_and_flags(build, parsed_toml)
+        _, archiver, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        defines = PrefixHashDefine(defines)
+
         pfw.build(
             outputs=relative_output_name,
             rule="archive",
@@ -344,7 +334,9 @@ class GCCBuilds:
                          parsed_toml: Dict):
         build_name = build["name"]
 
-        compiler, _, cxxflags, defines = get_toolchain_and_flags(build, parsed_toml)
+        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        defines = PrefixHashDefine(defines)
+
         includes = get_includes_for_build(build, parsed_toml)
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
         rpath = get_rpath(build, parsed_toml)
@@ -404,7 +396,9 @@ class GCCBuilds:
                        "-fvisibility=hidden",
                        "-fPIC"]
 
-        compiler, _, cxxflags, defines = get_toolchain_and_flags(build, parsed_toml)
+        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        defines = PrefixHashDefine(defines)
+
         includes = get_includes_for_build(build, parsed_toml)
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
         rpath = get_rpath(build, parsed_toml)
