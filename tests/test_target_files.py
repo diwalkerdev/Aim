@@ -229,7 +229,7 @@ class TestTargetFiles(TestCase):
         build_a = setup_build(global_target_file, "a")
 
         # Note, get_required_library_information ignores headerOnly and LibraryReference build rules.
-        lib_info = get_required_library_information(build_a, global_target_file)
+        lib_info = commonbuilds.get_required_library_information(build_a, global_target_file)
 
         self.assertEqual(lib_info[0].name, "b")
         self.assertEqual(lib_info[0].path, "b")
@@ -265,7 +265,7 @@ class TestTargetFiles(TestCase):
     def test_full_library_names(self):
         build_a = setup_build(global_target_file, "a")
 
-        lib_info = get_required_library_information(build_a, global_target_file)
+        lib_info = commonbuilds.get_required_library_information(build_a, global_target_file)
 
         # Note, full library names are required as an implicit rule for the build.
         full_library_names = get_full_library_name_convention(lib_info,

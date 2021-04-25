@@ -215,41 +215,41 @@ class TestTargetFiles(TestCase):
     #
     #     self.assertEqual(paths, "-Wl,-rpath=\'$$ORIGIN\'")
 
-    # def test_external_library_information(self):
-    #     build_a = setup_build(global_target_file, "a")
-    #     external_libraries_names, external_libraries_paths = get_external_libraries_information(build_a)
-    #     external_libraries_names = PrefixLibrary(external_libraries_names)
-    #     external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
-    #
-    #     self.assertEqual(len(external_libraries_names), 2)
-    #     self.assertTrue("SDL2" in external_libraries_names)
-    #     self.assertTrue("SDL2_image" in external_libraries_names)
-    #
-    #     self.assertEqual(len(external_libraries_paths), 1)
-    #     self.assertTrue("/LIBPATH:/usr/lib/SDL2" in external_libraries_paths)
-    #
-    # def test_required_library_information(self):
-    #     build_a = setup_build(global_target_file, "a")
-    #
-    #     # Note, get_required_library_information ignores headerOnly and LibraryReference build rules.
-    #     lib_info = get_required_library_information(build_a, global_target_file)
-    #
-    #     self.assertEqual(lib_info[0].name, "b")
-    #     self.assertEqual(lib_info[0].path, "b")
-    #     self.assertEqual(lib_info[0].type, "staticLib")
-    #
-    #     self.assertEqual(lib_info[1].name, "c")
-    #     self.assertEqual(lib_info[1].path, "c")
-    #     self.assertEqual(lib_info[1].type, "dynamicLib")
-    #
-    #     requires_libraries = PrefixLibrary([info.name for info in lib_info])
-    #     requires_library_paths = PrefixLibraryPath([info.path for info in lib_info])
-    #
-    #     self.assertTrue("b" in requires_libraries)
-    #     self.assertTrue("c" in requires_libraries)
-    #
-    #     self.assertTrue("/LIBPATH:b" in requires_library_paths)
-    #     self.assertTrue("/LIBPATH:c" in requires_library_paths)
+    def test_external_library_information(self):
+        build_a = setup_build(global_target_file, "a")
+        external_libraries_names, external_libraries_paths = get_external_libraries_information(build_a)
+        external_libraries_names = PrefixLibrary(external_libraries_names)
+        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
+
+        self.assertEqual(len(external_libraries_names), 2)
+        self.assertTrue("SDL2" in external_libraries_names)
+        self.assertTrue("SDL2_image" in external_libraries_names)
+
+        self.assertEqual(len(external_libraries_paths), 1)
+        self.assertTrue("/LIBPATH:C:\\SDL2" in external_libraries_paths)
+
+    def test_required_library_information(self):
+        build_a = setup_build(global_target_file, "a")
+
+        # Note, get_required_library_information ignores headerOnly and LibraryReference build rules.
+        lib_info = commonbuilds.get_required_library_information(build_a, global_target_file)
+
+        self.assertEqual(lib_info[0].name, "b")
+        self.assertEqual(lib_info[0].path, "b")
+        self.assertEqual(lib_info[0].type, "staticLib")
+
+        self.assertEqual(lib_info[1].name, "c")
+        self.assertEqual(lib_info[1].path, "c")
+        self.assertEqual(lib_info[1].type, "dynamicLib")
+
+        requires_libraries = PrefixLibrary([info.name for info in lib_info])
+        requires_library_paths = PrefixLibraryPath([info.path for info in lib_info])
+
+        self.assertTrue("b" in requires_libraries)
+        self.assertTrue("c" in requires_libraries)
+
+        self.assertTrue("/LIBPATH:b" in requires_library_paths)
+        self.assertTrue("/LIBPATH:c" in requires_library_paths)
     #
     # def test_library_reference(self):
     #     build_a = setup_build(global_target_file, "a")

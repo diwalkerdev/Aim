@@ -1,7 +1,15 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Callable
 from aim_build.utils import *
+from dataclasses import dataclass
 
 FileExtensions = ["*.cpp", "*.cxx", "*.cc", ".c"]
+
+
+@dataclass
+class LibraryInformation:
+    name: str
+    path: str
+    type: str
 
 
 def get_project_dir(build: Dict, target_file: Dict):
@@ -62,3 +70,68 @@ def get_src_files(build: Dict, target_file: Dict) -> StringList:
     src_files = relpaths(src_files, build_path)
 
     return [str(file) for file in src_files]
+
+
+def get_required_library_information(build: Dict, parsed_toml: Dict) -> List[LibraryInformation]:
+    requires = build.get("requires", [])
+    if not requires:
+        return []
+
+    build_names = []  # Used to prevent duplicates.
+    result = []
+
+    for required in requires:
+        the_dep = find_build(required, parsed_toml["builds"])
+        if not the_dep["buildRule"] in ["staticLib", "dynamicLib"]:
+            continue
+
+        build_name = the_dep["name"]
+        if build_name not in build_names:
+            build_names.append(build_name)
+            lib_info = LibraryInformation(the_dep["outputName"], the_dep["name"], the_dep["buildRule"])
+            result.append(lib_info)
+
+    return result
+
+
+def get_reference_library_information(build: Dict,
+                                      parsed_toml: Dict) -> Tuple[List[str], List[str]]:
+    requires = build.get("requires", [])
+    if not requires:
+        return [], []
+
+    build_names = []  # Used to prevent duplicates.
+    libraries = []
+    library_paths = []
+    for required in requires:
+        the_dep = find_build(required, parsed_toml["builds"])
+        if the_dep["buildRule"] != "libraryReference":
+            continue
+
+        build_name = the_dep["name"]
+        if build_name not in build_names:
+            build_names.append(build_name)
+            libraries += the_dep.get("libraries", [])
+            library_paths += the_dep.get("libraryPaths", [])
+
+    return libraries, library_paths
+
+
+def get_full_library_name_convention(lib_infos: List[LibraryInformation],
+                                     static_convention_func: Callable[[str], str],
+                                     dynamic_convention_func: Callable[[str], str]) -> StringList:
+    # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
+    # lib{name}.a/.so but the build dependency rule does need the full convention to find the build rule in the
+    # build.ninja file.
+    full_library_names = []
+    for info in lib_infos:
+        if info.type == "staticLib":
+            full_library_names.append(
+                static_convention_func(info.name)
+            )
+        elif info.type == "dynamicLib":
+            full_library_names.append(
+                dynamic_convention_func(info.name)
+            )
+
+    return full_library_names

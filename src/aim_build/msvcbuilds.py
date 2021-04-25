@@ -1,5 +1,5 @@
 import functools
-from typing import Dict
+from typing import Dict, Tuple
 from ninja_syntax import Writer
 from pathlib import PureWindowsPath, PurePosixPath
 from typing import Callable
@@ -27,16 +27,16 @@ def windows_add_exe_naming_convention(exe_name: str) -> str:
     return f"{exe_name}.exe"
 
 
-def implicit_library_inputs(libraries):
-    implicits = []
-    for library in libraries:
-        parts = library.split(".")
-        if parts[1] == "dll":
-            implicits.append(parts[0] + ".exp")
-            implicits.append(parts[0] + ".lib")
-        implicits.append(library)
+def convert_posix_to_windows(paths: Union[StringList, List[PurePosixPath]]):
+    return [str(path).replace("/", "\\") for path in paths]
 
-    return implicits
+
+def convert_strings_to_paths(paths: StringList):
+    return [PureWindowsPath(path) for path in convert_posix_to_windows(paths)]
+
+
+def convert_to_implicit_library_files(library):
+    return library + ".exp", library + ".lib"
 
 
 def implicit_library_outputs(libraries):
@@ -62,33 +62,48 @@ def convert_dlls_to_lib(libraries):
     return new_libraries
 
 
-def get_library_paths(build):
-    directory = build["directory"]
+def get_external_libraries_paths(build):
+    directory = PureWindowsPath(build["directory"])
     library_paths = build.get("libraryPaths", [])
+    library_paths = convert_posix_to_windows(library_paths)
     library_paths = prepend_paths(directory, library_paths)
-    library_paths = PrefixLibraryPath(add_quotes(library_paths))
     return library_paths
 
 
-def get_library_information(build):
+def get_external_libraries_names(build: Dict) -> Tuple[StringList, StringList]:
     libraries = build.get("libraries", [])
-    implicits = implicit_library_inputs(libraries)
-    link_libraries = PrefixLibrary(convert_dlls_to_lib(libraries))
-    return libraries, implicits, link_libraries
+    link_libraries = PrefixLibrary(libraries)
+    return libraries, link_libraries
 
 
-def get_third_party_library_information(build):
-    third_libraries = build.get("thirdPartyLibraries", [])
-    third_libraries = PrefixLibrary(convert_dlls_to_lib(third_libraries))
-    return third_libraries
+def get_external_libraries_information(build: Dict) -> Tuple[StringList, PathList]:
+    libraries, _ = get_external_libraries_names(build)
+    library_paths = get_external_libraries_paths(build)
+    return libraries, library_paths
 
 
-def convert_posix_to_windows(paths: Union[StringList, List[PurePosixPath]]):
-    return [str(path).replace("/", "\\") for path in paths]
+def get_library_information(lib_infos: List[commonbuilds.LibraryInformation]) -> Tuple[List, List]:
+    exps = []
+    libs = []
+
+    for info in lib_infos:
+        if info.type == "dynamicLib":
+            exp, lib = convert_to_implicit_library_files(info.name)
+            exps.append(exp)
+            libs.append(lib)
+        else:
+            lib = info.name + ".lib"
+            libs.append(lib)
+
+    return exps, libs
 
 
-def convert_strings_to_paths(paths: StringList):
-    return [PureWindowsPath(path) for path in convert_posix_to_windows(paths)]
+#
+#
+# def get_third_party_library_information(build):
+#     third_libraries = build.get("thirdPartyLibraries", [])
+#     third_libraries = PrefixLibrary(convert_dlls_to_lib(third_libraries))
+#     return third_libraries
 
 
 def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
@@ -114,7 +129,7 @@ def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
     return include_args
 
 
-def get_src_for_build(build:Dict, parsed_toml: Dict) -> List[PureWindowsPath]:
+def get_src_for_build(build: Dict, parsed_toml: Dict) -> List[PureWindowsPath]:
     files = commonbuilds.get_src_files(build, parsed_toml)
     return convert_strings_to_paths(files)
 
@@ -224,83 +239,135 @@ class MSVCBuilds:
         pfw.build(rule="phony", inputs=library_name, outputs=build_name)
         pfw.newline()
 
-    def build_executable(self, nfw, build: Dict):
+    @staticmethod
+    def build_exe_library(pfw: Writer,
+                              build: Dict,
+                              parsed_toml: Dict):
         build_name = build["name"]
-        exe_name = build["outputName"]
-        cxxflags = build["flags"]
-        defines = build["defines"]
-        requires = build.get("requires", [])
-        build_path = build["buildPath"]
 
-        includes = commonbuilds.get_include_paths(build)
-        library_paths = get_library_paths(build)
-        libraries, implicits, link_libraries = get_library_information(build)
-        third_libraries = get_third_party_library_information(build)
+        extra_flags = []
 
-        linker_args = library_paths + link_libraries + third_libraries
+        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        defines = PrefixHashDefine(defines)
 
-        for requirement in requires:
-            ninja_file = (build_path.parent / requirement / "build.ninja").resolve()
-            assert ninja_file.exists(), f"Failed to find {str(ninja_file)}."
-            nfw.subninja(escape_path(str(ninja_file)))
-            nfw.newline()
+        includes = get_includes_for_build(build, parsed_toml)
+        obj_files = add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
 
-        obj_files = self.add_compile_rule(nfw, build)
+        lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
 
-        nfw.build(
-            outputs=exe_name,
+        library_exps, link_libraries = get_library_information(lib_infos)
+        requires_libraries = PrefixLibrary(link_libraries)
+        requires_library_paths = [info.path for info in lib_infos]
+        requires_library_paths = PrefixLibraryPath(requires_library_paths)
+
+        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
+        external_libraries_names = PrefixLibrary(external_libraries_names)
+        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
+
+        ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
+        ref_libraries = PrefixLibrary(ref_libraries)
+        ref_library_paths = PrefixLibraryPath(ref_library_paths)
+
+        linker_args = (
+                requires_library_paths
+                + external_libraries_paths
+                + ref_library_paths
+                + requires_libraries
+                + external_libraries_names
+                + ref_libraries
+        )
+
+        full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
+                                                                           windows_add_static_library_naming_convention,
+                                                                           windows_add_dynamic_library_naming_convention)
+        implicit_outputs = list(convert_to_implicit_library_files(build["outputName"]))
+        exe_name = windows_add_exe_naming_convention(build["outputName"])
+        relative_output_name = str(PureWindowsPath(build_name) / exe_name)
+
+        pfw.build(
             rule="exe",
             inputs=to_str(obj_files),
-            implicit=implicits,
+            implicit=library_exps,
+            outputs=relative_output_name,
+            implicit_outputs=implicit_outputs + full_library_names,
             variables={
-                "compiler": self.cxx_compiler,
-                "includes": includes,
-                "flags": cxxflags,
-                "defines": defines,
-                "exe_name": exe_name,
-                "linker_args": " ".join(linker_args),
-            },
-        )
-        nfw.newline()
-
-        nfw.build(rule="phony", inputs=exe_name, outputs=build_name)
-        nfw.newline()
-
-    def build_dynamic_library(self, nfw, build: Dict):
-        build_name = build["name"]
-        lib_name = build["outputName"]
-        cxxflags = build["flags"]
-        defines = build["defines"]
-
-        includes = commonbuilds.get_include_paths(build)
-        library_paths = get_library_paths(build)
-        libraries, implicits, link_libraries = get_library_information(build)
-        third_libraries = get_third_party_library_information(build)
-
-        linker_args = library_paths + link_libraries + third_libraries
-        implicit_outputs = implicit_library_outputs([lib_name])
-
-        obj_files = self.add_compile_rule(nfw, build)
-
-        nfw.build(
-            rule="shared",
-            inputs=to_str(obj_files),
-            outputs=lib_name,
-            implicit=implicits,
-            implicit_outputs=implicit_outputs,
-            variables={
-                "compiler": self.cxx_compiler,
+                "compiler": compiler,
                 "includes": includes,
                 "flags": " ".join(cxxflags),
                 "defines": " ".join(defines),
-                "lib_name": lib_name,
+                "lib_name": exe_name,
                 "linker_args": " ".join(linker_args),
             },
         )
-        nfw.newline()
+        pfw.newline()
+        pfw.build(rule="phony", inputs=relative_output_name, outputs=exe_name)
+        pfw.build(rule="phony", inputs=exe_name, outputs=build_name)
+        pfw.newline()
 
-        nfw.build(rule="phony", inputs=lib_name, outputs=build_name)
-        nfw.newline()
+    @staticmethod
+    def build_dynamic_library(pfw: Writer,
+                              build: Dict,
+                              parsed_toml: Dict):
+        build_name = build["name"]
+
+        extra_flags = []
+
+        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        defines = PrefixHashDefine(defines)
+
+        includes = get_includes_for_build(build, parsed_toml)
+        obj_files = add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
+
+        lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
+
+        library_exps, link_libraries = get_library_information(lib_infos)
+        requires_libraries = PrefixLibrary(link_libraries)
+        requires_library_paths = [info.path for info in lib_infos]
+        requires_library_paths = PrefixLibraryPath(requires_library_paths)
+
+        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
+        external_libraries_names = PrefixLibrary(external_libraries_names)
+        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
+
+        ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
+        ref_libraries = PrefixLibrary(ref_libraries)
+        ref_library_paths = PrefixLibraryPath(ref_library_paths)
+
+        linker_args = (
+                requires_library_paths
+                + external_libraries_paths
+                + ref_library_paths
+                + requires_libraries
+                + external_libraries_names
+                + ref_libraries
+        )
+
+        full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
+                                                                           windows_add_static_library_naming_convention,
+                                                                           windows_add_dynamic_library_naming_convention)
+        implicit_outputs = list(convert_to_implicit_library_files(build["outputName"]))
+        library_name = windows_add_dynamic_library_naming_convention(build["outputName"])
+        relative_output_name = str(PureWindowsPath(build_name) / library_name)
+
+        pfw.build(
+            rule="shared",
+            inputs=to_str(obj_files),
+            implicit=library_exps,
+            outputs=relative_output_name,
+            implicit_outputs=implicit_outputs + full_library_names,
+            variables={
+                "compiler": compiler,
+                "includes": includes,
+                "flags": " ".join(cxxflags),
+                "defines": " ".join(defines),
+                "lib_name": library_name,
+                "linker_args": " ".join(linker_args),
+            },
+        )
+        pfw.newline()
+        pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
+        pfw.build(rule="phony", inputs=library_name, outputs=build_name)
+        pfw.newline()
 
 
 def log_build_information(build):
