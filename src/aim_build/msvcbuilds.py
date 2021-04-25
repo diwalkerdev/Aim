@@ -16,11 +16,11 @@ ToObjectFiles = src_to_obj
 
 # TODO: Should take version strings as well?
 def windows_add_static_library_naming_convention(library_name: str) -> str:
-    return f"lib{library_name}.a"
+    return f"lib{library_name}.lib"
 
 
 def windows_add_dynamic_library_naming_convention(library_name: str) -> str:
-    return f"lib{library_name}.so"
+    return f"lib{library_name}.dll"
 
 
 def windows_add_exe_naming_convention(exe_name: str) -> str:
@@ -266,7 +266,7 @@ class MSVCBuilds:
 
         ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
         ref_libraries = PrefixLibrary(ref_libraries)
-        ref_library_paths = PrefixLibraryPath(ref_library_paths)
+        ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
 
         linker_args = (
                 requires_library_paths
@@ -277,9 +277,11 @@ class MSVCBuilds:
                 + ref_libraries
         )
 
+        # Yes static is used twice because on windows we don't link against the dll but its
+        # corresponding lib file.
         full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
                                                                            windows_add_static_library_naming_convention,
-                                                                           windows_add_dynamic_library_naming_convention)
+                                                                           windows_add_static_library_naming_convention)
         implicit_outputs = list(convert_to_implicit_library_files(build["outputName"]))
         exe_name = windows_add_exe_naming_convention(build["outputName"])
         relative_output_name = str(PureWindowsPath(build_name) / exe_name)
@@ -331,7 +333,7 @@ class MSVCBuilds:
 
         ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
         ref_libraries = PrefixLibrary(ref_libraries)
-        ref_library_paths = PrefixLibraryPath(ref_library_paths)
+        ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
 
         linker_args = (
                 requires_library_paths
@@ -342,9 +344,11 @@ class MSVCBuilds:
                 + ref_libraries
         )
 
+        # Yes static is used twice because on windows we don't link against the dll but its
+        # corresponding lib file.
         full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
                                                                            windows_add_static_library_naming_convention,
-                                                                           windows_add_dynamic_library_naming_convention)
+                                                                           windows_add_static_library_naming_convention)
         implicit_outputs = list(convert_to_implicit_library_files(build["outputName"]))
         library_name = windows_add_dynamic_library_naming_convention(build["outputName"])
         relative_output_name = str(PureWindowsPath(build_name) / library_name)

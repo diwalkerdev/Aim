@@ -252,7 +252,7 @@ class TestTargetFiles(TestCase):
     def test_library_reference(self):
         build_a = setup_build(global_target_file, "a")
 
-        ref_libraries, ref_library_paths = get_reference_library_information(build_a, global_target_file)
+        ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build_a, global_target_file)
         ref_libraries = PrefixLibrary(ref_libraries)
         ref_library_paths = PrefixLibraryPath(ref_library_paths)
 
@@ -268,9 +268,9 @@ class TestTargetFiles(TestCase):
         lib_info = commonbuilds.get_required_library_information(build_a, global_target_file)
 
         # Note, full library names are required as an implicit rule for the build.
-        full_library_names = get_full_library_name_convention(lib_info,
-                                                              linux_add_static_library_naming_convention,
-                                                              linux_add_dynamic_library_naming_convention)
+        full_library_names = commonbuilds.get_full_library_name_convention(lib_info,
+                                                                           linux_add_static_library_naming_convention,
+                                                                           linux_add_dynamic_library_naming_convention)
 
         self.assertTrue("libb.a" in full_library_names)
         self.assertTrue("libc.so" in full_library_names)

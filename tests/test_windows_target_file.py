@@ -250,29 +250,31 @@ class TestTargetFiles(TestCase):
 
         self.assertTrue("/LIBPATH:b" in requires_library_paths)
         self.assertTrue("/LIBPATH:c" in requires_library_paths)
-    #
-    # def test_library_reference(self):
-    #     build_a = setup_build(global_target_file, "a")
-    #
-    #     ref_libraries, ref_library_paths = get_reference_library_information(build_a, global_target_file)
-    #     ref_libraries = PrefixLibrary(ref_libraries)
-    #     ref_library_paths = PrefixLibraryPath(ref_library_paths)
-    #
-    #     self.assertTrue(len(ref_libraries), 1)
-    #     self.assertTrue("specialLibrary" in ref_libraries)
-    #
-    #     self.assertTrue(len(ref_library_paths), 1)
-    #     self.assertTrue("/LIBPATH:/usr/lib/SpecialLibrary" in ref_library_paths)
-    #
-    # def test_full_library_names(self):
-    #     build_a = setup_build(global_target_file, "a")
-    #
-    #     lib_info = get_required_library_information(build_a, global_target_file)
-    #
-    #     # Note, full library names are required as an implicit rule for the build.
-    #     full_library_names = get_full_library_name_convention(lib_info,
-    #                                                           linux_add_static_library_naming_convention,
-    #                                                           linux_add_dynamic_library_naming_convention)
-    #
-    #     self.assertTrue("libb.a" in full_library_names)
-    #     self.assertTrue("libc.so" in full_library_names)
+
+    def test_library_reference(self):
+        build_a = setup_build(global_target_file, "a")
+
+        ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build_a, global_target_file)
+        ref_libraries = PrefixLibrary(ref_libraries)
+        ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
+
+        self.assertTrue(len(ref_libraries), 1)
+        self.assertTrue("specialLibrary" in ref_libraries)
+
+        self.assertTrue(len(ref_library_paths), 1)
+        self.assertTrue("/LIBPATH:C:\\SpecialLibrary" in ref_library_paths)
+
+    def test_full_library_names(self):
+        build_a = setup_build(global_target_file, "a")
+
+        lib_info = commonbuilds.get_required_library_information(build_a, global_target_file)
+
+        # Note, full library names are required as an implicit rule for the build.
+        # Note, static is used twice because on windows we don't link against the dll but its
+        # corresponding lib file.
+        full_library_names = commonbuilds.get_full_library_name_convention(lib_info,
+                                                                           windows_add_static_library_naming_convention,
+                                                                           windows_add_static_library_naming_convention)
+
+        self.assertTrue("libb.lib" in full_library_names)
+        self.assertTrue("libc.lib" in full_library_names)
