@@ -1,9 +1,11 @@
 import functools
 from typing import Dict
 from ninja_syntax import Writer
+from pathlib import PureWindowsPath
 
 from aim_build.msvcbuildrules import *
 from aim_build.utils import *
+from aim_build import commonbuilds
 
 PrefixIncludePath = functools.partial(prefix, "/I")
 PrefixLibraryPath = functools.partial(prefix, "/LIBPATH:")
@@ -55,14 +57,6 @@ def get_src_files(build):
     return src_files
 
 
-def get_include_paths(build):
-    directory = build["directory"]
-    include_paths = build.get("includePaths", [])
-    includes = prepend_paths(directory, include_paths)
-    includes = PrefixIncludePath(add_quotes(includes))
-    return includes
-
-
 def get_library_paths(build):
     directory = build["directory"]
     library_paths = build.get("libraryPaths", [])
@@ -82,6 +76,46 @@ def get_third_party_library_information(build):
     third_libraries = build.get("thirdPartyLibraries", [])
     third_libraries = PrefixLibrary(convert_dlls_to_lib(third_libraries))
     return third_libraries
+
+
+def convert_posix_to_windows(paths: StringList):
+    return [path.replace("/", "\\") for path in paths]
+
+
+def convert_strings_to_paths(paths: StringList):
+    return [PureWindowsPath(path) for path in convert_posix_to_windows(paths)]
+
+
+def get_required_include_information(build: Dict,
+                                     parsed_toml: Dict) -> StringList:
+    requires = [build["name"]] + build.get("requires", [])
+
+    include_paths = set()
+
+    project_root = PureWindowsPath(parsed_toml["projectRoot"])
+
+    for required in requires:
+        the_dep = commonbuilds.find_build(required, parsed_toml["builds"])
+
+        includes = the_dep.get("includePaths", [])
+        includes = convert_strings_to_paths(includes)
+        includes = commonbuilds.get_include_paths(includes, project_root)
+        include_paths.update(includes)
+
+    include_paths = [str(path) for path in include_paths]
+
+    include_paths.sort()
+    include_args = PrefixIncludePath(include_paths)
+
+    return include_args
+
+
+def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
+    includes = set()
+    includes.update(get_required_include_information(build, parsed_toml))
+    includes = list(includes)
+    includes.sort()
+    return includes
 
 
 class MSVCBuilds:
@@ -134,7 +168,7 @@ class MSVCBuilds:
         defines = build["defines"]
 
         src_files = get_src_files(build)
-        includes = get_include_paths(build)
+        includes = commonbuilds.get_include_paths(build)
 
         # Its very important to specify the absolute path to the obj files.
         # This prevents recompilation of files when an exe links against a library.
@@ -181,7 +215,7 @@ class MSVCBuilds:
         requires = build.get("requires", [])
         build_path = build["buildPath"]
 
-        includes = get_include_paths(build)
+        includes = commonbuilds.get_include_paths(build)
         library_paths = get_library_paths(build)
         libraries, implicits, link_libraries = get_library_information(build)
         third_libraries = get_third_party_library_information(build)
@@ -221,7 +255,7 @@ class MSVCBuilds:
         cxxflags = build["flags"]
         defines = build["defines"]
 
-        includes = get_include_paths(build)
+        includes = commonbuilds.get_include_paths(build)
         library_paths = get_library_paths(build)
         libraries, implicits, link_libraries = get_library_information(build)
         third_libraries = get_third_party_library_information(build)

@@ -152,7 +152,7 @@ def target_schema(document, project_dir):
                             },
                             {
                                 "dependencies": ["outputName"],
-                                "allowed" : ["exe", "staticLib", "dynamicLib"]
+                                "allowed": ["exe", "staticLib", "dynamicLib"]
                             }
                         ]
                     },
@@ -206,12 +206,14 @@ def target_schema(document, project_dir):
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": abs_path_checker.check,
+                        "dependencies": {"compilerFrontend": "gcc"},
                     },
                     "localIncludePaths": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": path_checker.check,
+                        "dependencies": {"compilerFrontend": "gcc"},
                     },
                     "libraryPaths": {
                         "type": "list",

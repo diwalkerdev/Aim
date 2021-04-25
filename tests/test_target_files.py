@@ -62,7 +62,7 @@ def setup_build(target_file, build_name, root=None):
     #
     # target_schema(toml, project_path)
 
-    build = find_build(build_name, target_file["builds"])
+    build = commonbuilds.find_build(build_name, target_file["builds"])
 
     # Note(DW): build_dir is the path provided to the target file.
     #

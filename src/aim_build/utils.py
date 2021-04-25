@@ -1,6 +1,6 @@
 import itertools
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import List, Union
 
 from aim_build.typedefs import PathList, StringList, T
@@ -60,5 +60,5 @@ def relpath(src_path: Path, dst_path: Path):
     return Path(os.path.relpath(str(src_path), str(dst_path)))
 
 
-def relpaths(src_paths: List[Path], dst_path: Path):
-    return [Path(os.path.relpath(str(src_path), str(dst_path))) for src_path in src_paths]
+def relpaths(src_paths: List[PurePath], dst_path: PurePath) -> List[PurePath]:
+    return [type(dst_path)(os.path.relpath(str(src_path), str(dst_path))) for src_path in src_paths]

@@ -3,6 +3,8 @@ from typing import Dict, Tuple, Callable
 from aim_build.utils import *
 from ninja_syntax import Writer
 from dataclasses import dataclass
+from aim_build import commonbuilds
+from pathlib import PurePosixPath
 
 PrefixIncludePath = functools.partial(prefix, "-I")
 PrefixSystemIncludePath = functools.partial(prefix, "-isystem")
@@ -35,17 +37,6 @@ class LibraryInformation:
     type: str
 
 
-def find_build(build_name: str, builds: Dict) -> Dict:
-    # Note, this should never fail, as required dependencies are checked by the schema.
-    for build in builds:
-        if build["name"] == build_name:
-            return build
-
-
-def find_builds_of_type(build_type: str, builds: Dict) -> List[Dict]:
-    return [build for build in builds if build["buildRule"] == build_type]
-
-
 def get_project_dir(build: Dict, target_file: Dict):
     root_dir = target_file["projectRoot"]
     project_dir = build["build_dir"] / root_dir
@@ -71,17 +62,6 @@ def get_src_files(build: Dict, target_file: Dict) -> PathList:
     return src_files
 
 
-def get_include_paths(build: Dict, build_dir: Path) -> PathList:
-    include_paths = build.get("includePaths", [])
-    include_paths = [Path(p) for p in include_paths]
-    abs_paths = [p for p in include_paths if p.is_absolute()]
-    rel_paths = [p for p in include_paths if not p.is_absolute()]
-    rel_paths = relpaths(rel_paths, build_dir)
-
-    includes = abs_paths + rel_paths
-    return includes
-
-
 def get_quote_include_paths(build: Dict, build_dir: Path) -> PathList:
     include_paths = build.get("localIncludePaths", [])
     includes = relpaths(include_paths, build_dir)
@@ -94,16 +74,26 @@ def get_system_include_paths(build: Dict) -> PathList:
     return paths
 
 
-def get_required_include_information(build: Dict, parsed_toml: Dict) -> StringList:
+def convert_strings_to_paths(paths):
+    return [PurePosixPath(path) for path in paths]
+
+
+def get_required_include_information(build: Dict,
+                                     parsed_toml: Dict) -> StringList:
     requires = [build["name"]] + build.get("requires", [])
 
     include_paths = set()
     system_include_paths = set()
     quote_include_paths = set()
-    for required in requires:
-        the_dep = find_build(required, parsed_toml["builds"])
 
-        includes = get_include_paths(the_dep, build["build_dir"])
+    project_root = PurePosixPath(parsed_toml["projectRoot"])
+
+    for required in requires:
+        the_dep = commonbuilds.find_build(required, parsed_toml["builds"])
+
+        includes = the_dep.get("includePaths", [])
+        includes = convert_strings_to_paths(includes)
+        includes = commonbuilds.get_include_paths(includes, project_root)
         include_paths.update(includes)
 
         quote_includes = get_quote_include_paths(the_dep, build["build_dir"])
@@ -112,9 +102,9 @@ def get_required_include_information(build: Dict, parsed_toml: Dict) -> StringLi
         system_includes = get_system_include_paths(the_dep)
         system_include_paths.update(system_includes)
 
-    include_paths = list(include_paths)
-    system_include_paths = list(system_include_paths)
-    quote_include_paths = list(quote_include_paths)
+    include_paths = [str(path) for path in include_paths]
+    system_include_paths = [str(path) for path in system_include_paths]
+    quote_include_paths = [str(path) for path in quote_include_paths]
 
     include_paths.sort()
     system_include_paths.sort()
@@ -210,7 +200,7 @@ def get_rpath(build: Dict, parsed_toml: Dict) -> str:
     # find_build_types("dynamicLib", parsed_toml["builds"])
     # TODO: replace the below with the above.
     for required in requires:
-        the_dep = find_build(required, parsed_toml["builds"])
+        the_dep = commonbuilds.find_build(required, parsed_toml["builds"])
         if the_dep["buildRule"] == "dynamicLib":
             library_paths.update([the_dep["name"]])
 
@@ -239,7 +229,7 @@ def get_required_library_information(build: Dict, parsed_toml: Dict) -> List[Lib
     result = []
 
     for required in requires:
-        the_dep = find_build(required, parsed_toml["builds"])
+        the_dep = commonbuilds.find_build(required, parsed_toml["builds"])
         if not the_dep["buildRule"] in ["staticLib", "dynamicLib"]:
             continue
 
@@ -282,7 +272,7 @@ def get_reference_library_information(build: Dict,
     libraries = []
     library_paths = []
     for required in requires:
-        the_dep = find_build(required, parsed_toml["builds"])
+        the_dep = commonbuilds.find_build(required, parsed_toml["builds"])
         if the_dep["buildRule"] != "libraryReference":
             continue
 
@@ -296,7 +286,8 @@ def get_reference_library_information(build: Dict,
 
 
 class GCCBuilds:
-    def build(self, build, parsed_toml, ninja_writer: Writer):
+    def build(self, build, parsed_toml, ninja_writer: Writer, args):
+        # TODO forward args
         build_name = build["name"]
         the_build = build["buildRule"]
         build_dir = build["build_dir"]
