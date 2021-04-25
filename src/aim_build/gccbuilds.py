@@ -78,8 +78,7 @@ def convert_strings_to_paths(paths):
     return [PurePosixPath(path) for path in paths]
 
 
-def get_required_include_information(build: Dict,
-                                     parsed_toml: Dict) -> StringList:
+def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
     requires = [build["name"]] + build.get("requires", [])
 
     include_paths = set()
@@ -115,14 +114,6 @@ def get_required_include_information(build: Dict,
     quote_args = PrefixQuoteIncludePath(quote_include_paths)
 
     return include_args + system_include_args + quote_args
-
-
-def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
-    includes = set()
-    includes.update(get_required_include_information(build, parsed_toml))
-    includes = list(includes)
-    includes.sort()
-    return includes
 
 
 def get_toolchain_and_flags(build: Dict, target_file: Dict) -> Tuple[str, str, StringList, StringList]:

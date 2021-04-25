@@ -86,8 +86,7 @@ def convert_strings_to_paths(paths: StringList):
     return [PureWindowsPath(path) for path in convert_posix_to_windows(paths)]
 
 
-def get_required_include_information(build: Dict,
-                                     parsed_toml: Dict) -> StringList:
+def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
     requires = [build["name"]] + build.get("requires", [])
 
     include_paths = set()
@@ -108,14 +107,6 @@ def get_required_include_information(build: Dict,
     include_args = PrefixIncludePath(include_paths)
 
     return include_args
-
-
-def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
-    includes = set()
-    includes.update(get_required_include_information(build, parsed_toml))
-    includes = list(includes)
-    includes.sort()
-    return includes
 
 
 class MSVCBuilds:
