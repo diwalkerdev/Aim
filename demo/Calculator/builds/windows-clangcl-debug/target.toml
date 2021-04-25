@@ -1,0 +1,44 @@
+projectRoot = "../../"
+compiler = "clang-cl"
+archiver = "llvm-ar"
+compilerFrontend="msvc"
+
+flags = [
+    "/std:c++17",
+    "/Zi",
+]
+
+[[builds]]
+name = "calculatorstatic"
+buildRule = "staticLib"
+outputName = "CalculatorStatic"
+srcDirs = ["lib"]
+includePaths = ["include"]
+
+#[[builds]]
+#name = "calculatordynamic"
+#buildRule = "dynamicLib"
+#outputName = "CalculatorShared"
+#srcDirs = ["lib"]
+#includePaths = ["include"]
+
+#[[builds]]
+#name = "calculatortests"
+#buildRule = "exe"
+#requires = ["calculatorstatic"]
+#outputName = "CalculatorTests"
+#srcDirs = ["tests"]
+#includePaths = ["include"]
+## The libraryPaths and libraries fields can be used to specify additional
+## libraries and paths to the build. This allows for linking against third
+## party libraries.
+##libraryPaths = []
+##libraries = []
+
+#[[builds]]
+#name = "calculatorapp"
+#buildRule = "exe"
+#requires = ["calculatordynamic"]
+#outputName = "CalculatorApp"
+#srcDirs = ["src"]
+#includePaths = ["include"]

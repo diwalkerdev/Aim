@@ -7,6 +7,7 @@ def add_compile(nfw):
         name="compile",
         description="Compile source files to object files",
         deps="msvc",
+        depfile="deps.d",
         command=command,
     )
     nfw.newline()
@@ -14,7 +15,7 @@ def add_compile(nfw):
 
 def add_ar(nfw):
     nfw.rule(
-        name="ar",
+        name="archive",
         description="Combine object files into an archive",
         command="llvm-ar cr $out $in",
     )
@@ -30,7 +31,6 @@ def add_exe(nfw):
 
 
 def add_shared(nfw):
-
     command = f"$compiler $defines $flags $includes $in /link /DLL /out:$lib_name $linker_args"
     nfw.rule(name="shared", description="Build an shared library.", command=command)
     nfw.newline()

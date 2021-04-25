@@ -11,7 +11,8 @@ from aim_build import msvcbuilds
 from aim_build.schema import target_schema
 from aim_build.utils import *
 from aim_build.version import __version__
-from aim_build.gccbuildrules import add_compile, add_ar, add_exe, add_shared
+from aim_build import gccbuildrules
+from aim_build import msvcbuildrules
 
 
 def find_build(build_name, builds):
@@ -161,10 +162,19 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
     with project_ninja.open("w+") as project_fd:
         project_writer = Writer(project_fd)
         # project_writer.include(str(build_dir / "rules.ninja"))
-        add_compile(project_writer)
-        add_ar(project_writer)
-        add_exe(project_writer)
-        add_shared(project_writer)
+        if frontend == "msvc":
+            msvcbuildrules.add_compile(project_writer)
+            msvcbuildrules.add_ar(project_writer)
+            msvcbuildrules.add_exe(project_writer)
+            msvcbuildrules.add_shared(project_writer)
+        elif frontend == "osx":
+            # builder = osxbuilds.OsxBuilds()
+            assert False, "OSX frontend is currently not supported."
+        else:
+            gccbuildrules.add_compile(project_writer)
+            gccbuildrules.add_ar(project_writer)
+            gccbuildrules.add_exe(project_writer)
+            gccbuildrules.add_shared(project_writer)
 
         for build_info in builds:
             current_build = build_info
