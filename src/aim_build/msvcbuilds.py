@@ -92,7 +92,7 @@ def get_library_information(lib_infos: List[commonbuilds.LibraryInformation]) ->
             exps.append(exp)
             libs.append(lib)
         else:
-            lib = info.name + ".lib"
+            lib = "lib" + info.name + ".lib"
             libs.append(lib)
 
     return exps, libs
@@ -281,22 +281,20 @@ class MSVCBuilds:
         full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
                                                                            windows_add_static_library_naming_convention,
                                                                            windows_add_static_library_naming_convention)
-        implicit_outputs = list(convert_to_implicit_library_files(build["outputName"]))
         exe_name = windows_add_exe_naming_convention(build["outputName"])
         relative_output_name = str(PureWindowsPath(build_name) / exe_name)
 
         pfw.build(
             rule="exe",
             inputs=to_str(obj_files),
-            implicit=library_exps,
+            implicit=library_exps + full_library_names,
             outputs=relative_output_name,
-            implicit_outputs=implicit_outputs + full_library_names,
             variables={
                 "compiler": compiler,
                 "includes": includes,
                 "flags": " ".join(cxxflags),
                 "defines": " ".join(defines),
-                "lib_name": exe_name,
+                "exe_name": exe_name,
                 "linker_args": " ".join(linker_args),
             },
         )

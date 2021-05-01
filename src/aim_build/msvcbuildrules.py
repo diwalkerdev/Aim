@@ -2,7 +2,8 @@ from aim_build.typedefs import StringList
 
 
 def add_compile(nfw):
-    command = f"$compiler $defines $includes /showIncludes $flags -c $in /Fo$out"
+    # Note, there cannot be a space between /Fo and $out
+    command = f"$compiler $flags $defines $includes /showIncludes /c $in /Fo$out"
     nfw.rule(
         name="compile",
         description="Compile source files to object files",
@@ -24,7 +25,7 @@ def add_ar(nfw):
 
 def add_exe(nfw):
     command = (
-        f"$compiler $defines $flags $includes $in /link /out:$exe_name $linker_args"
+        f"$compiler $flags $defines $includes $in /link /out:$exe_name $linker_args"
     )
     nfw.rule(name="exe", description="Build an executable.", command=command)
     nfw.newline()

@@ -35,10 +35,10 @@ includePaths = ["include"]
 ##libraryPaths = []
 ##libraries = []
 
-#[[builds]]
-#name = "calculatorapp"
-#buildRule = "exe"
-#requires = ["calculatordynamic"]
-#outputName = "CalculatorApp"
-#srcDirs = ["src"]
-#includePaths = ["include"]
+[[builds]]
+name = "calculatorapp"
+buildRule = "exe"
+requires = ["calculatorstatic"]
+outputName = "CalculatorApp"
+srcDirs = ["src"]
+includePaths = ["include"]
