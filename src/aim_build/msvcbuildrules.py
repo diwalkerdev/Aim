@@ -32,6 +32,6 @@ def add_exe(nfw):
 
 
 def add_shared(nfw):
-    command = f"$compiler $defines $flags $includes $in /link /DLL /out:$lib_name $linker_args"
-    nfw.rule(name="shared", description="Build an shared library.", command=command)
+    command = f"$compiler $flags $defines $includes $in /link /DLL /out:$lib_name $linker_args"
+    nfw.rule(name="shared", description="Build a shared library.", command=command)
     nfw.newline()

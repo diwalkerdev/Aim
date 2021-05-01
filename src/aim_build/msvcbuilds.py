@@ -36,7 +36,7 @@ def convert_strings_to_paths(paths: StringList):
 
 
 def convert_to_implicit_library_files(library):
-    return library + ".exp", library + ".lib"
+    return "lib" + library + ".exp", "lib" + library + ".lib"
 
 
 def implicit_library_outputs(libraries):
@@ -44,8 +44,8 @@ def implicit_library_outputs(libraries):
     for library in libraries:
         parts = library.split(".")
         if parts[1] == "dll":
-            implicits.append(parts[0] + ".exp")
-            implicits.append(parts[0] + ".lib")
+            implicits.append("lib" + parts[0] + ".exp")
+            implicits.append("lib" + parts[0] + ".lib")
 
     return implicits
 
@@ -55,9 +55,9 @@ def convert_dlls_to_lib(libraries):
     for library in libraries:
         parts = library.split(".")
         if parts[1] == "dll":
-            new_libraries.append(parts[0] + ".lib")
+            new_libraries.append("lib" + parts[0] + ".lib")
         else:
-            new_libraries.append(library)
+            new_libraries.append("lib" + library)
 
     return new_libraries
 
@@ -309,7 +309,7 @@ class MSVCBuilds:
                               parsed_toml: Dict):
         build_name = build["name"]
 
-        extra_flags = []
+        extra_flags = ["/DEXPORT_DLL_PUBLIC"]
 
         compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
         defines = PrefixHashDefine(defines)
