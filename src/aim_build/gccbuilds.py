@@ -278,8 +278,8 @@ class GCCBuilds:
         exe_name = linux_add_exe_naming_convention(build["outputName"])
         relative_output_name = str(Path(build_name) / exe_name)
         pfw.build(
+            rule="exe",
             outputs=relative_output_name,
-            rule=requires_libraries,
             inputs=to_str(obj_files),
             implicit=full_library_names,
             variables={
