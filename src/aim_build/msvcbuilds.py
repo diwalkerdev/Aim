@@ -3,7 +3,6 @@ from typing import Dict, Tuple
 from ninja_syntax import Writer
 from pathlib import PureWindowsPath, PurePosixPath
 from typing import Callable
-from aim_build.msvcbuildrules import *
 from aim_build.utils import *
 from aim_build import commonbuilds
 
@@ -11,6 +10,7 @@ PrefixIncludePath = functools.partial(prefix, "/I")
 PrefixLibraryPath = functools.partial(prefix, "/LIBPATH:")
 PrefixLibrary = functools.partial(prefix, "")
 PrefixHashDefine = functools.partial(prefix, "/D")
+PostFixLib = functools.partial(postfix, ".lib")
 ToObjectFiles = src_to_obj
 
 
@@ -260,11 +260,11 @@ class MSVCBuilds:
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
 
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
-        external_libraries_names = PrefixLibrary(external_libraries_names)
+        external_libraries_names = PrefixLibrary(PostFixLib(external_libraries_names))
         external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
 
         ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
-        ref_libraries = PrefixLibrary(ref_libraries)
+        ref_libraries = PrefixLibrary(PostFixLib(ref_libraries))
         ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
 
         linker_args = (
@@ -325,11 +325,11 @@ class MSVCBuilds:
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
 
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
-        external_libraries_names = PrefixLibrary(external_libraries_names)
+        external_libraries_names = PrefixLibrary(PostFixLib(external_libraries_names))
         external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
 
         ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
-        ref_libraries = PrefixLibrary(ref_libraries)
+        ref_libraries = PrefixLibrary(PostFixLib(ref_libraries))
         ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
 
         linker_args = (
