@@ -6,6 +6,8 @@ from typing import Callable
 from aim_build.utils import *
 from aim_build import commonbuilds
 
+USING_RELATIVE_OUTPUTS = False
+
 PrefixIncludePath = functools.partial(prefix, "/I")
 PrefixLibraryPath = functools.partial(prefix, "/LIBPATH:")
 PrefixLibrary = functools.partial(prefix, "")
@@ -82,28 +84,30 @@ def get_external_libraries_information(build: Dict) -> Tuple[StringList, PathLis
     return libraries, library_paths
 
 
-def get_library_information(lib_infos: List[commonbuilds.LibraryInformation]) -> Tuple[List, List]:
+def get_library_information(lib_infos: List[commonbuilds.LibraryInformation]) -> Tuple[List, List, List, List]:
     exps = []
     libs = []
+    # This is a bit confusing, we need just the library names and exp file names as this is what the linker needs, but
+    # ninja needs the full path to the exp file.
+    implicit_exps = []
+    implicit_libs = []
 
     for info in lib_infos:
         if info.type == "dynamicLib":
             exp, lib = convert_to_implicit_library_files(info.name)
             exps.append(exp)
             libs.append(lib)
+            if USING_RELATIVE_OUTPUTS:
+                implicit_exps.append(str(PureWindowsPath(info.path) / exp))
+                implicit_libs.append(str(PureWindowsPath(info.path) / lib))
+            else:
+                implicit_exps.append(exp)
+                implicit_libs.append(lib)
         else:
             lib = "lib" + info.name + ".lib"
             libs.append(lib)
 
-    return exps, libs
-
-
-#
-#
-# def get_third_party_library_information(build):
-#     third_libraries = build.get("thirdPartyLibraries", [])
-#     third_libraries = PrefixLibrary(convert_dlls_to_lib(third_libraries))
-#     return third_libraries
+    return exps, libs, implicit_exps, implicit_libs
 
 
 def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
@@ -254,7 +258,7 @@ class MSVCBuilds:
 
         lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
 
-        library_exps, link_libraries = get_library_information(lib_infos)
+        library_exps, link_libraries, implicit_exps, implicit_libs = get_library_information(lib_infos)
         requires_libraries = PrefixLibrary(link_libraries)
         requires_library_paths = [info.path for info in lib_infos]
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
@@ -276,30 +280,29 @@ class MSVCBuilds:
                 + ref_libraries
         )
 
-        # Yes static is used twice because on windows we don't link against the dll but its
-        # corresponding lib file.
-        full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
-                                                                           windows_add_static_library_naming_convention,
-                                                                           windows_add_static_library_naming_convention)
         exe_name = windows_add_exe_naming_convention(build["outputName"])
-        relative_output_name = str(PureWindowsPath(build_name) / exe_name)
+        if USING_RELATIVE_OUTPUTS:
+            build_output = str(PureWindowsPath(build_name) / exe_name)
+        else:
+            build_output = exe_name
 
         pfw.build(
             rule="exe",
             inputs=to_str(obj_files),
-            implicit=library_exps + full_library_names,
-            outputs=relative_output_name,
+            implicit=implicit_exps + implicit_libs,
+            outputs=build_output,
             variables={
                 "compiler": compiler,
                 "includes": includes,
                 "flags": " ".join(cxxflags),
                 "defines": " ".join(defines),
-                "exe_name": relative_output_name,
+                "exe_name": build_output,
                 "linker_args": " ".join(linker_args),
             },
         )
         pfw.newline()
-        pfw.build(rule="phony", inputs=relative_output_name, outputs=exe_name)
+        if USING_RELATIVE_OUTPUTS:
+            pfw.build(rule="phony", inputs=build_output, outputs=exe_name)
         pfw.build(rule="phony", inputs=exe_name, outputs=build_name)
         pfw.newline()
 
@@ -319,7 +322,7 @@ class MSVCBuilds:
 
         lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
 
-        library_exps, link_libraries = get_library_information(lib_infos)
+        library_exps, link_libraries, implicit_exps, implicit_libs = get_library_information(lib_infos)
         requires_libraries = PrefixLibrary(link_libraries)
         requires_library_paths = [info.path for info in lib_infos]
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
@@ -341,40 +344,44 @@ class MSVCBuilds:
                 + ref_libraries
         )
 
-        # Yes static is used twice because on windows we don't link against the dll but its
-        # corresponding lib file.
-        full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
-                                                                           windows_add_static_library_naming_convention,
-                                                                           windows_add_static_library_naming_convention)
         lib, exp = convert_to_implicit_library_files(build["outputName"])
-        implicit_outputs = [
-            str(PureWindowsPath(build_name) / lib),
-            str(PureWindowsPath(build_name) / exp)
-        ]
+        if USING_RELATIVE_OUTPUTS:
+            implicit_outputs = [
+                str(PureWindowsPath(build_name) / lib),
+                str(PureWindowsPath(build_name) / exp)
+            ]
+        else:
+            implicit_outputs = [
+                lib,
+                exp
+            ]
 
         library_name = windows_add_dynamic_library_naming_convention(build["outputName"])
-        relative_output_name = str(PureWindowsPath(build_name) / library_name)
+
+        if USING_RELATIVE_OUTPUTS:
+            build_output = str(PureWindowsPath(build_name) / library_name)
+        else:
+            build_output = library_name
 
         pfw.build(
             rule="shared",
             inputs=to_str(obj_files),
-            implicit=library_exps,
-            outputs=relative_output_name,
-            implicit_outputs=implicit_outputs + full_library_names,
+            implicit=implicit_exps + implicit_libs,
+            outputs=build_output,
+            implicit_outputs=implicit_outputs,
             variables={
                 "compiler": compiler,
                 "includes": includes,
                 "flags": " ".join(cxxflags),
                 "defines": " ".join(defines),
-                "lib_name": relative_output_name,
+                "lib_name": build_output,
                 "linker_args": " ".join(linker_args),
             },
         )
         pfw.newline()
+        if USING_RELATIVE_OUTPUTS:
+            pfw.build(rule="phony", inputs=build_output, outputs=library_name)
         pfw.build(rule="phony", inputs=library_name, outputs=build_name)
-        pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
-        pfw.build(rule="phony", inputs=implicit_outputs[0], outputs=lib)
-        pfw.build(rule="phony", inputs=implicit_outputs[1], outputs=exp)
         pfw.newline()
 
 
