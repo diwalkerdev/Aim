@@ -294,7 +294,7 @@ class MSVCBuilds:
                 "includes": includes,
                 "flags": " ".join(cxxflags),
                 "defines": " ".join(defines),
-                "exe_name": exe_name,
+                "exe_name": relative_output_name,
                 "linker_args": " ".join(linker_args),
             },
         )
@@ -346,7 +346,12 @@ class MSVCBuilds:
         full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
                                                                            windows_add_static_library_naming_convention,
                                                                            windows_add_static_library_naming_convention)
-        implicit_outputs = list(convert_to_implicit_library_files(build["outputName"]))
+        lib, exp = convert_to_implicit_library_files(build["outputName"])
+        implicit_outputs = [
+            str(PureWindowsPath(build_name) / lib),
+            str(PureWindowsPath(build_name) / exp)
+        ]
+
         library_name = windows_add_dynamic_library_naming_convention(build["outputName"])
         relative_output_name = str(PureWindowsPath(build_name) / library_name)
 
@@ -361,13 +366,15 @@ class MSVCBuilds:
                 "includes": includes,
                 "flags": " ".join(cxxflags),
                 "defines": " ".join(defines),
-                "lib_name": library_name,
+                "lib_name": relative_output_name,
                 "linker_args": " ".join(linker_args),
             },
         )
         pfw.newline()
-        pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
         pfw.build(rule="phony", inputs=library_name, outputs=build_name)
+        pfw.build(rule="phony", inputs=relative_output_name, outputs=library_name)
+        pfw.build(rule="phony", inputs=implicit_outputs[0], outputs=lib)
+        pfw.build(rule="phony", inputs=implicit_outputs[1], outputs=exp)
         pfw.newline()
 
 
