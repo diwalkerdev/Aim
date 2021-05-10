@@ -2,7 +2,7 @@ projectRoot = "../.."
 
 compilerFrontend="gcc"
 compiler = "clang++"
-ar = "ar"
+archiver = "ar"
 
 flags = [
     "-std=c++17",
