@@ -1,6 +1,6 @@
 import cerberus
 from pathlib import Path
-from typing import Union,List
+from typing import Union, List
 
 
 class UniqueNameChecker:
@@ -11,7 +11,7 @@ class UniqueNameChecker:
         if value in self.name_lookup:
             error(
                 field,
-                f"The build name must be unique. \"{value}\" has already been used.",
+                f'The build name must be unique. "{value}" has already been used.',
             )
         else:
             self.name_lookup.append(value)
@@ -43,7 +43,7 @@ class RequiresExistChecker:
 
 class AbsProjectDirPathChecker:
     def check(self, field, paths, error):
-        paths = [ Path(the_path) for the_path in paths]
+        paths = [Path(the_path) for the_path in paths]
 
         for directory in paths:
             if not directory.is_absolute():
@@ -66,7 +66,7 @@ class RelProjectDirPathChecker:
         for directory in paths:
             # Remember paths can now be directories or specific paths to files.
             if not directory.exists():
-                error(field, f"Directory does not exist: \"{str(directory)}\"")
+                error(field, f'Directory does not exist: "{str(directory)}"')
                 break
 
 
@@ -86,7 +86,9 @@ class AimCustomValidator(cerberus.Validator):
 
             suffix = Path(_value).suffix
             if suffix:
-                the_error_str = f"Unecessary suffix \"{suffix}\". Aim will add this automatically."
+                the_error_str = (
+                    f'Unecessary suffix "{suffix}". Aim will add this automatically.'
+                )
                 the_errors.append(the_error_str)
 
             return the_errors
@@ -125,10 +127,12 @@ def target_schema(document, project_dir):
             "allowed": ["msvc", "gcc", "osx"],
         },
         "flags": {"type": "list", "schema": {"type": "string"}, "empty": False},
-        "defines": {"type": "list",
-                    "schema": {"type": "string"},
-                    "empty": False,
-                    "check_with": defines_checker.check},
+        "defines": {
+            "type": "list",
+            "schema": {"type": "string"},
+            "empty": False,
+            "check_with": defines_checker.check,
+        },
         "projectRoot": {"required": True, "type": "string", "empty": False},
         "builds": {
             "required": True,
@@ -148,38 +152,46 @@ def target_schema(document, project_dir):
                         "oneof": [
                             {
                                 "excludes": "outputName",
-                                "allowed": ["headerOnly", "libraryReference"]
+                                "allowed": ["headerOnly", "libraryReference"],
                             },
                             {
                                 "dependencies": ["outputName"],
-                                "allowed": ["exe", "staticLib", "dynamicLib"]
-                            }
-                        ]
+                                "allowed": ["exe", "staticLib", "dynamicLib"],
+                            },
+                        ],
                     },
                     "compiler": {
                         "required": False,
                         "type": "string",
-                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
+                        "dependencies": {
+                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                        },
                     },
                     "defines": {
                         "type": "list",
                         "schema": {"type": "string"},
                         "empty": False,
                         "check_with": defines_checker.check,
-                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
+                        "dependencies": {
+                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                        },
                     },
                     "flags": {
                         "type": "list",
                         "schema": {"type": "string"},
                         "empty": False,
-                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
+                        "dependencies": {
+                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                        },
                     },
                     "requires": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": requires_exist_checker.check,
-                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
+                        "dependencies": {
+                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                        },
                     },
                     # Required but the requirement is handled by build rule.
                     "outputName": {
@@ -193,7 +205,9 @@ def target_schema(document, project_dir):
                         "type": "list",
                         "schema": {"type": "string"},
                         "check_with": path_checker.check,
-                        "dependencies": {"buildRule": ["exe", "staticLib", "dynamicLib"]},
+                        "dependencies": {
+                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                        },
                     },
                     "includePaths": {
                         "type": "list",
@@ -221,14 +235,18 @@ def target_schema(document, project_dir):
                         "schema": {"type": "string"},
                         # you can't check the library dirs as they may not exist if the project not built before.
                         # "check_with": path_checker.check,
-                        "dependencies": {"buildRule": ["exe", "dynamicLib", "libraryReference"]},
+                        "dependencies": {
+                            "buildRule": ["exe", "dynamicLib", "libraryReference"]
+                        },
                     },
                     "libraries": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
                         "check_with": "output_naming_convention",
-                        "dependencies": {"buildRule": ["exe", "dynamicLib", "libraryReference"]},
+                        "dependencies": {
+                            "buildRule": ["exe", "dynamicLib", "libraryReference"]
+                        },
                     },
                 },
             },
@@ -239,12 +257,13 @@ def target_schema(document, project_dir):
     validator.validate(document, schema)
 
     import pprint
+
     pretty = pprint.PrettyPrinter(indent=2, width=100)
     # TODO: Handle schema errors. https://docs.python-cerberus.org/en/stable/errors.html
     if validator.errors:
         for k, v in validator.errors.items():
-            if k!= "builds":
-                print(f"Error for field \"{k}\"")
+            if k != "builds":
+                print(f'Error for field "{k}"')
                 pretty.pprint(f"{v}")
                 print()
 
@@ -256,8 +275,10 @@ def target_schema(document, project_dir):
                 the_build = builds[k]
                 the_build_name = the_build["name"]
 
-                print(f"Error in build: \"{the_build_name}\"")
-                assert len(v) == 1, "Length is not 1. Not sure if it can ever be more than."
+                print(f'Error in build: "{the_build_name}"')
+                assert (
+                    len(v) == 1
+                ), "Length is not 1. Not sure if it can ever be more than."
                 pretty.pprint(v[0])
                 print()
         exit(-1)

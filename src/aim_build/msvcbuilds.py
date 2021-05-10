@@ -84,7 +84,9 @@ def get_external_libraries_information(build: Dict) -> Tuple[StringList, PathLis
     return libraries, library_paths
 
 
-def get_library_information(lib_infos: List[commonbuilds.LibraryInformation]) -> Tuple[List, List, List, List]:
+def get_library_information(
+    lib_infos: List[commonbuilds.LibraryInformation],
+) -> Tuple[List, List, List, List]:
     exps = []
     libs = []
     # This is a bit confusing, we need just the library names and exp file names as this is what the linker needs, but
@@ -138,14 +140,18 @@ def get_src_for_build(build: Dict, parsed_toml: Dict) -> List[PureWindowsPath]:
     return convert_strings_to_paths(files)
 
 
-def add_compile_rule(writer: Writer,
-                     build: Dict,
-                     target_file: Dict,
-                     includes: StringList,
-                     extra_flags: StringList = None):
+def add_compile_rule(
+    writer: Writer,
+    build: Dict,
+    target_file: Dict,
+    includes: StringList,
+    extra_flags: StringList = None,
+):
     build_name = build["name"]
 
-    compiler, _, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, target_file)
+    compiler, _, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(
+        build, target_file
+    )
     defines = PrefixHashDefine(defines)
 
     if extra_flags:
@@ -175,11 +181,7 @@ def add_compile_rule(writer: Writer,
 
 
 class MSVCBuilds:
-    def build(self, 
-            build: Dict, 
-            parsed_toml: Dict,
-            ninja_writer: Writer, 
-            args):
+    def build(self, build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
         # TODO forward args
         build_name = build["name"]
         the_build = build["buildRule"]
@@ -192,16 +194,15 @@ class MSVCBuilds:
 
         if the_build == "staticLib":
             self.build_static_library(
-                ninja_writer, build, parsed_toml, windows_add_static_library_naming_convention
+                ninja_writer,
+                build,
+                parsed_toml,
+                windows_add_static_library_naming_convention,
             )
         elif the_build == "exe":
-            self.build_executable(
-                ninja_writer, build, parsed_toml
-            )
+            self.build_executable(ninja_writer, build, parsed_toml)
         elif the_build == "dynamicLib":
-            self.build_dynamic_library(
-                ninja_writer, build, parsed_toml
-            )
+            self.build_dynamic_library(ninja_writer, build, parsed_toml)
         elif the_build == "headerOnly":
             pass
         elif the_build == "libraryReference":
@@ -210,10 +211,9 @@ class MSVCBuilds:
             raise RuntimeError(f"Unknown build type {the_build}.")
 
     @staticmethod
-    def build_static_library(pfw: Writer,
-                             build: Dict,
-                             parsed_toml: Dict,
-                             lib_name_func: Callable[[str], str]):
+    def build_static_library(
+        pfw: Writer, build: Dict, parsed_toml: Dict, lib_name_func: Callable[[str], str]
+    ):
         build_name = build["name"]
 
         includes = get_includes_for_build(build, parsed_toml)
@@ -222,7 +222,9 @@ class MSVCBuilds:
         library_name = lib_name_func(build["outputName"])
         relative_output_name = str(PureWindowsPath(build_name) / library_name)
 
-        _, archiver, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        _, archiver, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(
+            build, parsed_toml
+        )
         defines = PrefixHashDefine(defines)
 
         pfw.build(
@@ -243,14 +245,14 @@ class MSVCBuilds:
         pfw.newline()
 
     @staticmethod
-    def build_executable(pfw: Writer,
-                         build: Dict,
-                         parsed_toml: Dict):
+    def build_executable(pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
 
         extra_flags = []
 
-        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(
+            build, parsed_toml
+        )
         defines = PrefixHashDefine(defines)
 
         includes = get_includes_for_build(build, parsed_toml)
@@ -258,26 +260,39 @@ class MSVCBuilds:
 
         lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
 
-        library_exps, link_libraries, implicit_exps, implicit_libs = get_library_information(lib_infos)
+        (
+            library_exps,
+            link_libraries,
+            implicit_exps,
+            implicit_libs,
+        ) = get_library_information(lib_infos)
         requires_libraries = PrefixLibrary(link_libraries)
         requires_library_paths = [info.path for info in lib_infos]
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
 
-        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
+        (
+            external_libraries_names,
+            external_libraries_paths,
+        ) = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(PostFixLib(external_libraries_names))
         external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
 
-        ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
+        (
+            ref_libraries,
+            ref_library_paths,
+        ) = commonbuilds.get_reference_library_information(build, parsed_toml)
         ref_libraries = PrefixLibrary(PostFixLib(ref_libraries))
-        ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
+        ref_library_paths = PrefixLibraryPath(
+            convert_posix_to_windows(ref_library_paths)
+        )
 
         linker_args = (
-                requires_library_paths
-                + external_libraries_paths
-                + ref_library_paths
-                + requires_libraries
-                + external_libraries_names
-                + ref_libraries
+            requires_library_paths
+            + external_libraries_paths
+            + ref_library_paths
+            + requires_libraries
+            + external_libraries_names
+            + ref_libraries
         )
 
         exe_name = windows_add_exe_naming_convention(build["outputName"])
@@ -307,14 +322,14 @@ class MSVCBuilds:
         pfw.newline()
 
     @staticmethod
-    def build_dynamic_library(pfw: Writer,
-                              build: Dict,
-                              parsed_toml: Dict):
+    def build_dynamic_library(pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
 
         extra_flags = ["/DEXPORT_DLL_PUBLIC"]
 
-        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(
+            build, parsed_toml
+        )
         defines = PrefixHashDefine(defines)
 
         includes = get_includes_for_build(build, parsed_toml)
@@ -322,41 +337,53 @@ class MSVCBuilds:
 
         lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
 
-        library_exps, link_libraries, implicit_exps, implicit_libs = get_library_information(lib_infos)
+        (
+            library_exps,
+            link_libraries,
+            implicit_exps,
+            implicit_libs,
+        ) = get_library_information(lib_infos)
         requires_libraries = PrefixLibrary(link_libraries)
         requires_library_paths = [info.path for info in lib_infos]
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
 
-        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
+        (
+            external_libraries_names,
+            external_libraries_paths,
+        ) = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(PostFixLib(external_libraries_names))
         external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
 
-        ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
+        (
+            ref_libraries,
+            ref_library_paths,
+        ) = commonbuilds.get_reference_library_information(build, parsed_toml)
         ref_libraries = PrefixLibrary(PostFixLib(ref_libraries))
-        ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
+        ref_library_paths = PrefixLibraryPath(
+            convert_posix_to_windows(ref_library_paths)
+        )
 
         linker_args = (
-                requires_library_paths
-                + external_libraries_paths
-                + ref_library_paths
-                + requires_libraries
-                + external_libraries_names
-                + ref_libraries
+            requires_library_paths
+            + external_libraries_paths
+            + ref_library_paths
+            + requires_libraries
+            + external_libraries_names
+            + ref_libraries
         )
 
         lib, exp = convert_to_implicit_library_files(build["outputName"])
         if USING_RELATIVE_OUTPUTS:
             implicit_outputs = [
                 str(PureWindowsPath(build_name) / lib),
-                str(PureWindowsPath(build_name) / exp)
+                str(PureWindowsPath(build_name) / exp),
             ]
         else:
-            implicit_outputs = [
-                lib,
-                exp
-            ]
+            implicit_outputs = [lib, exp]
 
-        library_name = windows_add_dynamic_library_naming_convention(build["outputName"])
+        library_name = windows_add_dynamic_library_naming_convention(
+            build["outputName"]
+        )
 
         if USING_RELATIVE_OUTPUTS:
             build_output = str(PureWindowsPath(build_name) / library_name)

@@ -7,7 +7,8 @@ import toml
 from aim_build.common import DEMO_ZIP_FILE_NAME
 from aim_build import gccbuilds
 from aim_build import msvcbuilds
-#from aim_build import osxbuilds
+
+# from aim_build import osxbuilds
 from aim_build.schema import target_schema
 from aim_build.utils import *
 from aim_build.version import __version__
@@ -28,9 +29,7 @@ def run_ninja(working_dir, build_name):
     # command_str = " ".join(command)
     # print(f'Executing "{command_str}"')
 
-    process = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     for line in iter(process.stdout.readline, b""):
         sys.stdout.write(line.decode("utf-8"))
@@ -57,9 +56,7 @@ def entry():
 
     init_parser = sub_parser.add_parser("init", help="creates a project structure")
     init_parser.add_argument(
-        "--demo-files",
-        help="create additional demo files",
-        action="store_true"
+        "--demo-files", help="create additional demo files", action="store_true"
     )
 
     build_parser = sub_parser.add_parser("build", help="executes a build")
@@ -78,14 +75,12 @@ def entry():
     build_parser.add_argument(
         "--profile-build",
         help="forwards -ftime-trace to the compiler for emitting build profile information."
-             " View using chome://tracing.",
+        " View using chome://tracing.",
         action="store_true",
     )
 
     build_parser.add_argument(
-        "--args",
-        help="additional arguments forwarded to the compiler",
-        nargs="*"
+        "--args", help="additional arguments forwarded to the compiler", nargs="*"
     )
 
     build_parser = sub_parser.add_parser(
@@ -224,7 +219,7 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
         builds = parsed_toml["builds"]
         the_build = find_build(build_name, builds)
         root_dir = parsed_toml["projectRoot"]
-        project_dir = (build_dir / root_dir)
+        project_dir = build_dir / root_dir
         assert project_dir.exists(), f"{str(project_dir)} does not exist."
 
         try:
@@ -267,8 +262,12 @@ def run_list(target_path):
             # static_convention_func = None
             # dynamic_convection_func = None
             # exe_convention_func = None
-            static_convention_func = msvcbuilds.windows_add_static_library_naming_convention
-            dynamic_convection_func = msvcbuilds.windows_add_dynamic_library_naming_convention
+            static_convention_func = (
+                msvcbuilds.windows_add_static_library_naming_convention
+            )
+            dynamic_convection_func = (
+                msvcbuilds.windows_add_dynamic_library_naming_convention
+            )
             exe_convention_func = msvcbuilds.windows_add_exe_naming_convention
         elif frontend == "osx":
             # static_convention_func = None
@@ -276,8 +275,12 @@ def run_list(target_path):
             # exe_convention_func = None
             assert False, "OSX frontend is currently not supported."
         else:
-            static_convention_func = gccbuilds.linux_add_static_library_naming_convention
-            dynamic_convection_func = gccbuilds.linux_add_dynamic_library_naming_convention
+            static_convention_func = (
+                gccbuilds.linux_add_static_library_naming_convention
+            )
+            dynamic_convection_func = (
+                gccbuilds.linux_add_dynamic_library_naming_convention
+            )
             exe_convention_func = gccbuilds.linux_add_exe_naming_convention
 
         header = ["Item", "Name", "Build Rule", "Output Name"]
@@ -292,7 +295,7 @@ def run_list(target_path):
                     build["buildRule"],
                     static_convention_func,
                     dynamic_convection_func,
-                    exe_convention_func
+                    exe_convention_func,
                 )
             row = [number, build["name"], build["buildRule"], output_name]
             table.append(row)

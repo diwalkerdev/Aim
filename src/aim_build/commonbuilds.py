@@ -29,8 +29,9 @@ def find_builds_of_type(build_type: str, builds: Dict) -> List[Dict]:
     return [build for build in builds if build["buildRule"] == build_type]
 
 
-def get_include_paths(include_paths: List[PurePath],
-                      build_dir: PurePath) -> List[PurePath]:
+def get_include_paths(
+    include_paths: List[PurePath], build_dir: PurePath
+) -> List[PurePath]:
     abs_paths = [p for p in include_paths if p.is_absolute()]
     rel_paths = [p for p in include_paths if not p.is_absolute()]
     rel_paths = prepend_paths(build_dir, rel_paths)
@@ -39,7 +40,9 @@ def get_include_paths(include_paths: List[PurePath],
     return includes
 
 
-def get_toolchain_and_flags(build: Dict, target_file: Dict) -> Tuple[str, str, StringList, StringList]:
+def get_toolchain_and_flags(
+    build: Dict, target_file: Dict
+) -> Tuple[str, str, StringList, StringList]:
     local_compiler = build.get("compiler", None)
     local_archiver = build.get("archiver", None)
     local_flags = build.get("flags", None)
@@ -72,7 +75,9 @@ def get_src_files(build: Dict, target_file: Dict) -> StringList:
     return [str(file) for file in src_files]
 
 
-def get_required_library_information(build: Dict, parsed_toml: Dict) -> List[LibraryInformation]:
+def get_required_library_information(
+    build: Dict, parsed_toml: Dict
+) -> List[LibraryInformation]:
     requires = build.get("requires", [])
     if not requires:
         return []
@@ -88,14 +93,17 @@ def get_required_library_information(build: Dict, parsed_toml: Dict) -> List[Lib
         build_name = the_dep["name"]
         if build_name not in build_names:
             build_names.append(build_name)
-            lib_info = LibraryInformation(the_dep["outputName"], the_dep["name"], the_dep["buildRule"])
+            lib_info = LibraryInformation(
+                the_dep["outputName"], the_dep["name"], the_dep["buildRule"]
+            )
             result.append(lib_info)
 
     return result
 
 
-def get_reference_library_information(build: Dict,
-                                      parsed_toml: Dict) -> Tuple[List[str], List[str]]:
+def get_reference_library_information(
+    build: Dict, parsed_toml: Dict
+) -> Tuple[List[str], List[str]]:
     requires = build.get("requires", [])
     if not requires:
         return [], []
@@ -117,21 +125,19 @@ def get_reference_library_information(build: Dict,
     return libraries, library_paths
 
 
-def get_full_library_name_convention(lib_infos: List[LibraryInformation],
-                                     static_convention_func: Callable[[str], str],
-                                     dynamic_convention_func: Callable[[str], str]) -> StringList:
+def get_full_library_name_convention(
+    lib_infos: List[LibraryInformation],
+    static_convention_func: Callable[[str], str],
+    dynamic_convention_func: Callable[[str], str],
+) -> StringList:
     # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
     # lib{name}.a/.so but the build dependency rule does need the full convention to find the build rule in the
     # build.ninja file.
     full_library_names = []
     for info in lib_infos:
         if info.type == "staticLib":
-            full_library_names.append(
-                static_convention_func(info.name)
-            )
+            full_library_names.append(static_convention_func(info.name))
         elif info.type == "dynamicLib":
-            full_library_names.append(
-                dynamic_convention_func(info.name)
-            )
+            full_library_names.append(dynamic_convention_func(info.name))
 
     return full_library_names

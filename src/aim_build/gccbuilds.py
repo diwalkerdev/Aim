@@ -105,14 +105,18 @@ def get_src_for_build(build: Dict, parsed_toml: Dict) -> List[PurePosixPath]:
     return convert_strings_to_paths(files)
 
 
-def add_compile_rule(writer: Writer,
-                     build: Dict,
-                     target_file: Dict,
-                     includes: StringList,
-                     extra_flags: StringList = None):
+def add_compile_rule(
+    writer: Writer,
+    build: Dict,
+    target_file: Dict,
+    includes: StringList,
+    extra_flags: StringList = None,
+):
     build_name = build["name"]
 
-    compiler, _, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, target_file)
+    compiler, _, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(
+        build, target_file
+    )
     defines = PrefixHashDefine(defines)
 
     if extra_flags:
@@ -158,9 +162,7 @@ def get_rpath(build: Dict, parsed_toml: Dict) -> str:
     library_paths = list(library_paths)
     library_paths.sort()
     library_paths = prepend_paths(top_build_dir, library_paths)
-    relative_paths = [
-        relpath(Path(lib_path), build_dir) for lib_path in library_paths
-    ]
+    relative_paths = [relpath(Path(lib_path), build_dir) for lib_path in library_paths]
 
     relative_paths = [f"$$ORIGIN/{rel_path}" for rel_path in relative_paths]
     relative_paths = ["$$ORIGIN"] + relative_paths
@@ -170,11 +172,7 @@ def get_rpath(build: Dict, parsed_toml: Dict) -> str:
 
 
 class GCCBuilds:
-    def build(self, 
-            build: Dict, 
-            parsed_toml: Dict,
-            ninja_writer: Writer, 
-            args):
+    def build(self, build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
         # TODO forward args
         build_name = build["name"]
         the_build = build["buildRule"]
@@ -187,16 +185,15 @@ class GCCBuilds:
 
         if the_build == "staticLib":
             self.build_static_library(
-                ninja_writer, build, parsed_toml, linux_add_static_library_naming_convention
+                ninja_writer,
+                build,
+                parsed_toml,
+                linux_add_static_library_naming_convention,
             )
         elif the_build == "exe":
-            self.build_executable(
-                ninja_writer, build, parsed_toml
-            )
+            self.build_executable(ninja_writer, build, parsed_toml)
         elif the_build == "dynamicLib":
-            self.build_dynamic_library(
-                ninja_writer, build, parsed_toml
-            )
+            self.build_dynamic_library(ninja_writer, build, parsed_toml)
         elif the_build == "headerOnly":
             pass
         elif the_build == "libraryReference":
@@ -205,10 +202,9 @@ class GCCBuilds:
             raise RuntimeError(f"Unknown build type {the_build}.")
 
     @staticmethod
-    def build_static_library(pfw: Writer,
-                             build: Dict,
-                             parsed_toml: Dict,
-                             lib_name_func: Callable[[str], str]):
+    def build_static_library(
+        pfw: Writer, build: Dict, parsed_toml: Dict, lib_name_func: Callable[[str], str]
+    ):
         build_name = build["name"]
 
         includes = get_includes_for_build(build, parsed_toml)
@@ -217,7 +213,9 @@ class GCCBuilds:
         library_name = lib_name_func(build["outputName"])
         relative_output_name = str(PurePosixPath(build_name) / library_name)
 
-        _, archiver, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        _, archiver, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(
+            build, parsed_toml
+        )
         defines = PrefixHashDefine(defines)
 
         pfw.build(
@@ -238,18 +236,21 @@ class GCCBuilds:
         pfw.newline()
 
     @staticmethod
-    def build_executable(pfw: Writer,
-                         build: Dict,
-                         parsed_toml: Dict):
+    def build_executable(pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
 
-        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(
+            build, parsed_toml
+        )
         defines = PrefixHashDefine(defines)
 
         includes = get_includes_for_build(build, parsed_toml)
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
         rpath = get_rpath(build, parsed_toml)
-        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
+        (
+            external_libraries_names,
+            external_libraries_paths,
+        ) = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(external_libraries_names)
         external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
 
@@ -257,23 +258,28 @@ class GCCBuilds:
         requires_libraries = PrefixLibrary([info.name for info in lib_infos])
         requires_library_paths = PrefixLibraryPath([info.path for info in lib_infos])
 
-        ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
+        (
+            ref_libraries,
+            ref_library_paths,
+        ) = commonbuilds.get_reference_library_information(build, parsed_toml)
         ref_libraries = PrefixLibrary(ref_libraries)
         ref_library_paths = PrefixLibraryPath(ref_library_paths)
 
         linker_args = (
-                [rpath]
-                + requires_library_paths
-                + external_libraries_paths
-                + ref_library_paths
-                + requires_libraries
-                + external_libraries_names
-                + ref_libraries
+            [rpath]
+            + requires_library_paths
+            + external_libraries_paths
+            + ref_library_paths
+            + requires_libraries
+            + external_libraries_names
+            + ref_libraries
         )
 
-        full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
-                                                                           linux_add_static_library_naming_convention,
-                                                                           linux_add_dynamic_library_naming_convention)
+        full_library_names = commonbuilds.get_full_library_name_convention(
+            lib_infos,
+            linux_add_static_library_naming_convention,
+            linux_add_dynamic_library_naming_convention,
+        )
 
         exe_name = linux_add_exe_naming_convention(build["outputName"])
         relative_output_name = str(Path(build_name) / exe_name)
@@ -296,16 +302,14 @@ class GCCBuilds:
         pfw.newline()
 
     @staticmethod
-    def build_dynamic_library(pfw: Writer,
-                              build: Dict,
-                              parsed_toml: Dict):
+    def build_dynamic_library(pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
 
-        extra_flags = ["-DEXPORT_DLL_PUBLIC",
-                       "-fvisibility=hidden",
-                       "-fPIC"]
+        extra_flags = ["-DEXPORT_DLL_PUBLIC", "-fvisibility=hidden", "-fPIC"]
 
-        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(build, parsed_toml)
+        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(
+            build, parsed_toml
+        )
         defines = PrefixHashDefine(defines)
 
         includes = get_includes_for_build(build, parsed_toml)
@@ -318,27 +322,35 @@ class GCCBuilds:
         requires_library_paths = [info.path for info in lib_infos]
         requires_library_paths = PrefixLibraryPath(requires_library_paths)
 
-        external_libraries_names, external_libraries_paths = get_external_libraries_information(build)
+        (
+            external_libraries_names,
+            external_libraries_paths,
+        ) = get_external_libraries_information(build)
         external_libraries_names = PrefixLibrary(external_libraries_names)
         external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
 
-        ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build, parsed_toml)
+        (
+            ref_libraries,
+            ref_library_paths,
+        ) = commonbuilds.get_reference_library_information(build, parsed_toml)
         ref_libraries = PrefixLibrary(ref_libraries)
         ref_library_paths = PrefixLibraryPath(ref_library_paths)
 
         linker_args = (
-                [rpath]
-                + requires_library_paths
-                + external_libraries_paths
-                + ref_library_paths
-                + requires_libraries
-                + external_libraries_names
-                + ref_libraries
+            [rpath]
+            + requires_library_paths
+            + external_libraries_paths
+            + ref_library_paths
+            + requires_libraries
+            + external_libraries_names
+            + ref_libraries
         )
 
-        full_library_names = commonbuilds.get_full_library_name_convention(lib_infos,
-                                                                           linux_add_static_library_naming_convention,
-                                                                           linux_add_dynamic_library_naming_convention)
+        full_library_names = commonbuilds.get_full_library_name_convention(
+            lib_infos,
+            linux_add_static_library_naming_convention,
+            linux_add_dynamic_library_naming_convention,
+        )
 
         library_name = linux_add_dynamic_library_naming_convention(build["outputName"])
         relative_output_name = str(PurePosixPath(build_name) / library_name)
@@ -362,11 +374,13 @@ class GCCBuilds:
         pfw.newline()
 
 
-def add_naming_convention(output_name: str,
-                          build_type: str,
-                          static_convention_func=linux_add_static_library_naming_convention,
-                          dynamic_convention_func=linux_add_dynamic_library_naming_convention,
-                          exe_convention_func=linux_add_exe_naming_convention):
+def add_naming_convention(
+    output_name: str,
+    build_type: str,
+    static_convention_func=linux_add_static_library_naming_convention,
+    dynamic_convention_func=linux_add_dynamic_library_naming_convention,
+    exe_convention_func=linux_add_exe_naming_convention,
+):
     if build_type == "staticLib":
         new_name = static_convention_func(output_name)
     elif build_type == "dynamicLib":

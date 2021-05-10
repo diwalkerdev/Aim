@@ -66,4 +66,7 @@ def relpath(src_path: Path, dst_path: Path):
 
 
 def relpaths(src_paths: List[PurePath], dst_path: PurePath) -> List[PurePath]:
-    return [type(dst_path)(os.path.relpath(str(src_path), str(dst_path))) for src_path in src_paths]
+    return [
+        type(dst_path)(os.path.relpath(str(src_path), str(dst_path)))
+        for src_path in src_paths
+    ]
