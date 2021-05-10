@@ -11,16 +11,20 @@
 ![GitHub contributors](https://img.shields.io/github/contributors/diwalkerdev/aim)
 ![GitHub](https://img.shields.io/github/license/diwalkerdev/aim)
 
+
 # Aim
 A command line tool for building C++ projects. 
 
 ## Introduction
-Aim is an attempt to make building C++ projects from source as simple as possible while encouraging a modular approach 
-to software development.
+Aim is an attempt to make building C++ projects from source as simple as possible while encouraging a modular approach to software development.
 
 Aim only requires a `target.toml` file which is used to specify the builds of your project. Each build specifies a
 component of your project, like a static library, dynamic library, or an executable.
 
+Aim supports:
+ * Windows with `msvc` frontend.
+ * Linux with `gcc` frontend.
+ * It should also be possible to use the `gcc` frontend on Windows when using GCC-like compilers but this hasn't be tested.
 
 ## Getting Started
 ### Prerequisites
@@ -72,14 +76,14 @@ A `target.toml` file describes a project and its build components.
 Begin by specifying `projectRoot` which is the path from the target file to your source files. All relative paths 
 will be relative to this directory.
 
-The compiler frontend informs Aim how to construct compiler arguments (Note, only the `gcc` frontend is currently supported, but `msvc` will be added soon). Next specify the `compiler`, `archiver`, `flags` and
-any `defines`. 
+The compiler frontend informs Aim how to construct the arguments for the compiler. Use `gcc`
+for GCC-like compilers and `msvc` for Microsoft cl-like compilers. Next specify the `compiler`, `archiver`, `flags` and any `defines`. 
 ```
 projectRoot = "../.."
 
 compilerFrontend="gcc"
 compiler = "clang++"
-ar = "ar"
+archiver = "ar"
 
 flags = [
     "-std=c++17",
@@ -196,6 +200,3 @@ In order to use a development version of Aim on the command line, is it recommen
 There are `dev-env.bash` and `dev-env.fish` scripts that configure this for you in the root of the Aim project directory. 
 Note, these files must be sourced in order for them to work. 
 
-   
-## Known Limitations
-* Windows support is still in development but is coming soon.

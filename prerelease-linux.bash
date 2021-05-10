@@ -8,7 +8,7 @@ echo "Running ${0}"
 python package.py
 source ./dev-env.bash
 
-rm -rf ../AimTestProject || true
+rm -rf ../AimTestProject || true # allowed to fail if doesn't exist.
 mkdir ../AimTestProject
 pushd ../AimTestProject
 
