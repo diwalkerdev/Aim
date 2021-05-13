@@ -1,9 +1,6 @@
-from aim_build.typedefs import StringList
-
-
 def add_compile(nfw):
     # Note, there cannot be a space between /Fo and $out
-    command = f"$compiler $flags $defines $includes /showIncludes /c $in /Fo$out"
+    command = "$compiler $flags $defines $includes /showIncludes /c $in /Fo$out"
     nfw.rule(
         name="compile",
         description="Compile source files to object files",
@@ -25,13 +22,13 @@ def add_ar(nfw):
 
 def add_exe(nfw):
     command = (
-        f"$compiler $flags $defines $includes $in /link /out:$exe_name $linker_args"
+        "$compiler $flags $defines $includes $in /link /out:$exe_name $linker_args"
     )
     nfw.rule(name="exe", description="Build an executable.", command=command)
     nfw.newline()
 
 
 def add_shared(nfw):
-    command = f"$compiler $flags $defines $includes $in /link /DLL /out:$lib_name $linker_args"
+    command = "$compiler $flags $defines $includes $in /link /DLL /out:$lib_name $linker_args"
     nfw.rule(name="shared", description="Build a shared library.", command=command)
     nfw.newline()

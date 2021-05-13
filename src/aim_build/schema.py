@@ -1,6 +1,9 @@
-import cerberus
+import pprint
+import sys
 from pathlib import Path
 from typing import Union, List
+
+import cerberus
 
 
 class UniqueNameChecker:
@@ -17,6 +20,7 @@ class UniqueNameChecker:
             self.name_lookup.append(value)
 
 
+# TODO: DefinesPrefixChecker could be a function.
 class DefinesPrefixChecker:
     def check(self, field, defines: List[str], error):
         for value in defines:
@@ -41,6 +45,7 @@ class RequiresExistChecker:
                 error(field, f"Build name does not exist: {value}")
 
 
+# TODO: class could be a function.
 class AbsProjectDirPathChecker:
     def check(self, field, paths, error):
         paths = [Path(the_path) for the_path in paths]
@@ -256,29 +261,28 @@ def target_schema(document, project_dir):
     validator = AimCustomValidator()
     validator.validate(document, schema)
 
-    import pprint
-
     pretty = pprint.PrettyPrinter(indent=2, width=100)
+
     # TODO: Handle schema errors. https://docs.python-cerberus.org/en/stable/errors.html
     if validator.errors:
-        for k, v in validator.errors.items():
-            if k != "builds":
-                print(f'Error for field "{k}"')
-                pretty.pprint(f"{v}")
+        for key, value in validator.errors.items():
+            if key != "builds":
+                print(f'Error for field "{key}"')
+                pretty.pprint(f"{value}")
                 print()
 
         builds_errors = validator.errors.get("builds", {})
         if builds_errors:
             assert len(builds_errors) == 1, "Build error list size is greater than 1."
-            for k, v in builds_errors[0].items():
+            for key, value in builds_errors[0].items():
                 builds = document["builds"]
-                the_build = builds[k]
+                the_build = builds[key]
                 the_build_name = the_build["name"]
 
                 print(f'Error in build: "{the_build_name}"')
                 assert (
-                    len(v) == 1
+                    len(value) == 1
                 ), "Length is not 1. Not sure if it can ever be more than."
-                pretty.pprint(v[0])
+                pretty.pprint(value[0])
                 print()
-        exit(-1)
+        sys.exit(-1)
