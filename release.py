@@ -44,7 +44,7 @@ def release():
     new_version_string = [str(part) for part in new_version_tuple]
     new_version_string = ".".join(new_version_string)
 
-    version_path = Path("src/aim_build/version.py")
+    version_path = Path("aim_build/version.py")
     version_info = [
         f'__version__ = "{new_version_string}"',
         f"__version_info__ = ({new_version_tuple[0]}, {new_version_tuple[1]}, {new_version_tuple[2]})",
