@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/diwalkerdev/Aim"
 repository = "https://github.com/diwalkerdev/Aim"
 keywords = ["cpp", "build-tool", "poetry", "python", "linux", "windows", "macos"]
-include = ["LICENSE", "MANIFEST.in", "src/aim_build/zipdemo.zip"]
+include = ["aim_build/LICENSE", "aim_build/zipdemo.zip"]
 classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Environment :: Console",
