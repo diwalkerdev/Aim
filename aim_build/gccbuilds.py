@@ -1,9 +1,19 @@
 import functools
-from typing import Dict, Tuple, Callable
-from aim_build.utils import *
-from ninja_syntax import Writer
+from pathlib import PurePosixPath, PurePath, Path
+from typing import Dict, Tuple, Callable, List
+
 from aim_build import commonbuilds
-from pathlib import PurePosixPath
+from aim_build.typedefs import PathList, StringList
+from aim_build.utils import (
+    prefix,
+    src_to_o,
+    relpaths,
+    prepend_paths,
+    to_str,
+    relpath,
+    escape_path,
+)
+from ninja_syntax import Writer
 
 PrefixIncludePath = functools.partial(prefix, "-I")
 PrefixSystemIncludePath = functools.partial(prefix, "-isystem")
@@ -171,6 +181,48 @@ def get_rpath(build: Dict, parsed_toml: Dict) -> str:
     return f"-Wl,-rpath='{relative_paths_string}'"
 
 
+def generate_linker_args(build, parsed_toml):
+    lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
+
+    rpath = get_rpath(build, parsed_toml)
+
+    # Requires Libraries:
+    #
+    requires_libraries = PrefixLibrary([info.name for info in lib_infos])
+    requires_library_paths = PrefixLibraryPath([info.path for info in lib_infos])
+
+    # External Libraries:
+    #
+    (
+        external_libraries_names,
+        external_libraries_paths,
+    ) = get_external_libraries_information(build)
+
+    external_libraries_names = PrefixLibrary(external_libraries_names)
+    external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
+
+    # Reference Libraries:
+    #
+    (
+        ref_libraries,
+        ref_library_paths,
+    ) = commonbuilds.get_reference_library_information(build, parsed_toml)
+
+    ref_libraries = PrefixLibrary(ref_libraries)
+    ref_library_paths = PrefixLibraryPath(ref_library_paths)
+
+    linker_args = (
+            [rpath]
+            + requires_library_paths
+            + external_libraries_paths
+            + ref_library_paths
+            + requires_libraries
+            + external_libraries_names
+            + ref_libraries
+    )
+    return linker_args
+
+
 class GCCBuilds:
     def build(self, build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
         # TODO forward args
@@ -246,34 +298,9 @@ class GCCBuilds:
 
         includes = get_includes_for_build(build, parsed_toml)
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes)
-        rpath = get_rpath(build, parsed_toml)
-        (
-            external_libraries_names,
-            external_libraries_paths,
-        ) = get_external_libraries_information(build)
-        external_libraries_names = PrefixLibrary(external_libraries_names)
-        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
 
         lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
-        requires_libraries = PrefixLibrary([info.name for info in lib_infos])
-        requires_library_paths = PrefixLibraryPath([info.path for info in lib_infos])
-
-        (
-            ref_libraries,
-            ref_library_paths,
-        ) = commonbuilds.get_reference_library_information(build, parsed_toml)
-        ref_libraries = PrefixLibrary(ref_libraries)
-        ref_library_paths = PrefixLibraryPath(ref_library_paths)
-
-        linker_args = (
-            [rpath]
-            + requires_library_paths
-            + external_libraries_paths
-            + ref_library_paths
-            + requires_libraries
-            + external_libraries_names
-            + ref_libraries
-        )
+        linker_args = generate_linker_args(build, parsed_toml)
 
         full_library_names = commonbuilds.get_full_library_name_convention(
             lib_infos,
@@ -304,7 +331,6 @@ class GCCBuilds:
     @staticmethod
     def build_dynamic_library(pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
-
         extra_flags = ["-DEXPORT_DLL_PUBLIC", "-fvisibility=hidden", "-fPIC"]
 
         compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(
@@ -314,37 +340,9 @@ class GCCBuilds:
 
         includes = get_includes_for_build(build, parsed_toml)
         obj_files = add_compile_rule(pfw, build, parsed_toml, includes, extra_flags)
-        rpath = get_rpath(build, parsed_toml)
 
         lib_infos = commonbuilds.get_required_library_information(build, parsed_toml)
-        requires_libraries = [info.name for info in lib_infos]
-        requires_libraries = PrefixLibrary(requires_libraries)
-        requires_library_paths = [info.path for info in lib_infos]
-        requires_library_paths = PrefixLibraryPath(requires_library_paths)
-
-        (
-            external_libraries_names,
-            external_libraries_paths,
-        ) = get_external_libraries_information(build)
-        external_libraries_names = PrefixLibrary(external_libraries_names)
-        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
-
-        (
-            ref_libraries,
-            ref_library_paths,
-        ) = commonbuilds.get_reference_library_information(build, parsed_toml)
-        ref_libraries = PrefixLibrary(ref_libraries)
-        ref_library_paths = PrefixLibraryPath(ref_library_paths)
-
-        linker_args = (
-            [rpath]
-            + requires_library_paths
-            + external_libraries_paths
-            + ref_library_paths
-            + requires_libraries
-            + external_libraries_names
-            + ref_libraries
-        )
+        linker_args = generate_linker_args(build, parsed_toml)
 
         full_library_names = commonbuilds.get_full_library_name_convention(
             lib_infos,

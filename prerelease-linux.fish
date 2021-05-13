@@ -2,8 +2,9 @@
 
 status -f
 
+set AIM_CMD "PYTHONPATH=$PWD "(poetry env info -p)"/bin/python $PWD/aim_build/main.py"
+
 python package.py || exit
-source dev-env.fish || exit
 
 eval $AIM_CMD --help || exit
 
@@ -24,7 +25,7 @@ eval $AIM_CMD build --target=builds/linux-clang++-debug calculatorapp --args=-ft
 ./builds/linux-clang++-debug/calculatortests/CalculatorTests.exe || exit
 ./builds/linux-clang++-debug/calculatorapp/CalculatorApp.exe || exit
 
-aim clobber --target=builds/linux-clang++-debug || exit
+eval $AIM_CMD clobber --target=builds/linux-clang++-debug || exit
 
 popd || exit
 

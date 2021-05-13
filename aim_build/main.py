@@ -1,27 +1,22 @@
 import argparse
+import os
+import shutil
 import subprocess
 import sys
 import zipfile
-from ninja_syntax import Writer
+from pathlib import Path
+
 import toml
-from aim_build.common import DEMO_ZIP_FILE_NAME
-from aim_build import gccbuilds
-from aim_build import msvcbuilds
-
-# from aim_build import osxbuilds
-from aim_build.schema import target_schema
-from aim_build.utils import *
-from aim_build.version import __version__
 from aim_build import gccbuildrules
+from aim_build import gccbuilds
 from aim_build import msvcbuildrules
-
-
-def find_build(build_name, builds):
-    for build in builds:
-        if build["name"] == build_name:
-            return build
-    else:
-        raise RuntimeError(f"Failed to find build with name: {build_name}")
+from aim_build import msvcbuilds
+from aim_build.common import DEMO_ZIP_FILE_NAME
+from aim_build.commonbuilds import find_build
+from aim_build.schema import target_schema
+from aim_build.version import __version__
+from ninja_syntax import Writer
+from tabulate import tabulate
 
 
 def run_ninja(working_dir, build_name):
@@ -29,12 +24,11 @@ def run_ninja(working_dir, build_name):
     # command_str = " ".join(command)
     # print(f'Executing "{command_str}"')
 
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    for line in iter(process.stdout.readline, b""):
-        sys.stdout.write(line.decode("utf-8"))
-    for line in iter(process.stderr.readline, b""):
-        sys.stderr.write(line.decode("utf-8"))
+    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+        for line in iter(process.stdout.readline, b""):
+            sys.stdout.write(line.decode("utf-8"))
+        for line in iter(process.stderr.readline, b""):
+            sys.stderr.write(line.decode("utf-8"))
 
 
 def entry():
@@ -101,9 +95,8 @@ def entry():
         zip_path = script_path / f"{DEMO_ZIP_FILE_NAME}"
 
         assert zip_path.exists(), f"Failed to find demo zip files: {str(zip_path)}"
-        zip_file = zipfile.ZipFile(str(zip_path))
-
-        run_init(zip_file, relative_dir)
+        with zipfile.ZipFile(str(zip_path)) as zip_file:
+            run_init(zip_file, relative_dir)
     elif mode == "build":
         forwarding_args = [] if args.args is None else args.args
         if args.profile_build and "-ftime-trace" not in forwarding_args:
@@ -114,8 +107,6 @@ def entry():
     elif mode == "clobber":
         run_clobber(args.target)
     else:
-        import sys
-
         parser.print_help(sys.stdout)
 
 
@@ -123,7 +114,7 @@ def run_init(demo_zip: zipfile.ZipFile, subdir_name):
     project_dir = Path().cwd()
     dirs = ["include", "src", "lib", "tests", "builds"]
     dirs = [project_dir / x for x in dirs]
-    print(f"Creating directories...")
+    print("Creating directories...")
     for a_dir in dirs:
         print(f"\t{str(a_dir)}")
         a_dir.mkdir(exist_ok=True)
@@ -224,16 +215,16 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
 
         try:
             target_schema(parsed_toml, project_dir)
-        except RuntimeError as e:
-            print(f"Error: {e.args[0]}")
-            exit(-1)
+        except RuntimeError as exception:
+            print(f"Error: {exception.args[0]}")
+            sys.exit(-1)
 
         if not skip_ninja_regen:
             print("Generating ninja files...")
             generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args)
-            with (build_dir.resolve() / "compile_commands.json").open("w+") as cc:
+            with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
                 command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
-                subprocess.run(command, stdout=cc)
+                subprocess.run(command, stdout=cc_json, check=True)
 
         run_ninja(build_dir, the_build["name"])
 
@@ -258,10 +249,6 @@ def run_list(target_path):
         frontend = parsed_toml["compilerFrontend"]
 
         if frontend == "msvc":
-            # builder = msvcbuilds.MSVCBuilds("", "", "")
-            # static_convention_func = None
-            # dynamic_convection_func = None
-            # exe_convention_func = None
             static_convention_func = (
                 msvcbuilds.windows_add_static_library_naming_convention
             )
@@ -270,9 +257,6 @@ def run_list(target_path):
             )
             exe_convention_func = msvcbuilds.windows_add_exe_naming_convention
         elif frontend == "osx":
-            # static_convention_func = None
-            # dynamic_convection_func = None
-            # exe_convention_func = None
             assert False, "OSX frontend is currently not supported."
         else:
             static_convention_func = (
@@ -299,8 +283,6 @@ def run_list(target_path):
                 )
             row = [number, build["name"], build["buildRule"], output_name]
             table.append(row)
-
-        from tabulate import tabulate
 
         print()
         print(tabulate(table, header))
@@ -329,8 +311,6 @@ def run_clobber(target_path):
         if item.name != "target.toml":
             print(f"Deleting {item.name}")
             if item.is_dir():
-                import shutil
-
                 shutil.rmtree(str(item))
             else:
                 os.remove(str(item))

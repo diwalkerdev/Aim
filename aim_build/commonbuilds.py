@@ -1,6 +1,9 @@
-from typing import Dict, Tuple, Callable
-from aim_build.utils import *
 from dataclasses import dataclass
+from pathlib import PurePath
+from typing import Dict, Tuple, Callable, List
+
+from aim_build.typedefs import StringList
+from aim_build.utils import prepend_paths, flatten, to_str, relpaths, glob
 
 FileExtensions = ["*.cpp", "*.cxx", "*.cc", ".c"]
 
@@ -23,6 +26,8 @@ def find_build(build_name: str, builds: Dict) -> Dict:
     for build in builds:
         if build["name"] == build_name:
             return build
+
+    raise RuntimeError(f"Failed to find build with name: {build_name}")
 
 
 def find_builds_of_type(build_type: str, builds: Dict) -> List[Dict]:
