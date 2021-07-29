@@ -17,7 +17,7 @@ def add_ar(nfw: Writer):
     nfw.rule(
         name="archive",
         description="Combine object files into an archive",
-        command="$archiver cr $out $in",
+        command="$archiver crs $out $in",
     )
     nfw.newline()
 

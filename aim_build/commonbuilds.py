@@ -1,11 +1,10 @@
 from dataclasses import dataclass
-from pathlib import PurePath
+
+from pathlib import PurePosixPath, Path
 from typing import Dict, Tuple, Callable, List
 
 from aim_build.typedefs import StringList
-from aim_build.utils import prepend_paths, flatten, to_str, relpaths, glob
-
-FileExtensions = ["*.cpp", "*.cxx", "*.cc", ".c"]
+from aim_build.utils import prepend_paths, to_native_path, to_pure_posix_path, relpaths
 
 
 @dataclass
@@ -34,11 +33,10 @@ def find_builds_of_type(build_type: str, builds: Dict) -> List[Dict]:
     return [build for build in builds if build["buildRule"] == build_type]
 
 
-def get_include_paths(
-    include_paths: List[PurePath], build_dir: PurePath
-) -> List[PurePath]:
-    abs_paths = [p for p in include_paths if p.is_absolute()]
-    rel_paths = [p for p in include_paths if not p.is_absolute()]
+def get_include_paths(include_paths: List[PurePosixPath], build_dir: PurePosixPath) -> List[PurePosixPath]:
+    include_paths = [to_native_path(path) for path in include_paths]
+    abs_paths = [PurePosixPath(str(p).replace("\\", "/")) for p in include_paths if p.is_absolute()]
+    rel_paths = [PurePosixPath(str(p).replace("\\", "/")) for p in include_paths if not p.is_absolute()]
     rel_paths = prepend_paths(build_dir, rel_paths)
 
     includes = abs_paths + rel_paths
@@ -47,37 +45,58 @@ def get_include_paths(
 
 def get_toolchain_and_flags(
     build: Dict, target_file: Dict
-) -> Tuple[str, str, StringList, StringList]:
+) -> Tuple[str, str, StringList, StringList, str, StringList]:
     local_compiler = build.get("compiler", None)
     local_archiver = build.get("archiver", None)
     local_flags = build.get("flags", None)
     local_defines = build.get("defines", None)
+    local_linker = build.get("linker", None)
+    local_linker_flags = build.get("linker_flags", None)
 
     compiler = local_compiler if local_compiler else target_file["compiler"]
     archiver = local_archiver if local_archiver else target_file["archiver"]
     cxx_flags = local_flags if local_flags else target_file.get("flags", [])
     defines = local_defines if local_defines else target_file.get("defines", [])
-    return compiler, archiver, cxx_flags, defines
+    global_linker = target_file.get("linker", compiler)
+
+    linker = local_compiler if local_linker else global_linker
+    linker_flags = local_linker_flags if local_linker_flags else cxx_flags
+
+    return compiler, archiver, cxx_flags, defines, linker, linker_flags
 
 
 def get_src_files(build: Dict, target_file: Dict) -> StringList:
     project_dir = get_project_dir(build, target_file)
+    paths = build["srcDirs"]
+    paths = [to_native_path(path) for path in paths]
 
-    srcs = prepend_paths(project_dir, build["srcDirs"])
-    src_dirs = [path for path in srcs if path.is_dir()]
-    explicit_src_files = [path for path in srcs if path.is_file()]
-    src_files = []
-    for glob_pattern in FileExtensions:
-        glob_files = flatten(glob(glob_pattern, src_dirs))
-        src_files += glob_files
+    # Resolve relative paths to the build directory, and leave absolute paths alone.
+    #
+    abs_paths = [path for path in paths if path.is_absolute() is True]
+    rel_paths = [path for path in paths if path.is_absolute() is False]
 
-    src_files += explicit_src_files
-    assert src_files, f"Fail to find any source files in {to_str(src_dirs)}."
+    src_paths = []
+    for path in abs_paths:
+        if path.stem == "*":
+            globbed_files = list(path.parent.glob(path.name))
+            src_paths += globbed_files
+        else:
+            src_paths.append(path)
 
     build_path = build["build_dir"]
-    src_files = relpaths(src_files, build_path)
+    for path in rel_paths:
+        path = project_dir / path
+        if path.stem == "*":
+            globbed_files = list(path.parent.glob(path.name))
 
-    return [str(file) for file in src_files]
+            rel_paths = relpaths(globbed_files, build_path)
+            src_paths += rel_paths
+        else:
+            rel_path = relpaths(path, build_path)
+            src_paths += rel_path
+
+    src_paths = [to_pure_posix_path(path) for path in src_paths]
+    return [str(file) for file in src_paths]
 
 
 def get_required_library_information(

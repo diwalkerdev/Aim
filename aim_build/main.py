@@ -203,6 +203,9 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
 
     toml_path = build_dir / "target.toml"
 
+    completed_path = (Path().cwd() / toml_path).resolve()
+    assert toml_path.exists(), f"Error: Could not find toml file at {str(completed_path)}"
+
     with toml_path.open("r") as toml_file:
         parsed_toml = toml.loads(toml_file.read())
 

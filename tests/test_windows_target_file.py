@@ -1,7 +1,6 @@
-import pathlib
+from pathlib import Path, PurePath
 from unittest import TestCase
 from aim_build.msvcbuilds import *
-from aim_build.schema import target_schema
 import tempfile
 
 # TODO check that schema prevents local and system includes when frontend is msvc.
@@ -20,7 +19,7 @@ global_target_file = {
             "buildRule": "exe",
             "requires": ["b", "c", "r", "i"],
             "includePaths": ["a/include"],
-            "srcDirs": ["a/src"],
+            "srcDirs": ["a/src/*.cpp"],
             "outputName": "a",
             "libraryPaths": ["C:/SDL2"],
             "libraries": ["SDL2", "SDL2_image"]
@@ -63,6 +62,7 @@ def setup_build(target_file: Dict,
                 root=None):
     # Note(DW): this can be used to validate the target file.
     #
+    # from aim_build.schema import target_schema
     # target_schema(toml, project_path)
 
     build = commonbuilds.find_build(build_name, target_file["builds"])
@@ -149,7 +149,7 @@ class TestTargetFiles(TestCase):
 
     def test_toolchain_and_flags(self):
         build = setup_build(global_target_file, "a")
-        cxx, ar, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, global_target_file)
+        cxx, ar, cxx_flags, defines, _, __ = commonbuilds.get_toolchain_and_flags(build, global_target_file)
 
         self.assertEqual(cxx, "clang-cl")
         self.assertEqual(ar, "clang-ar")
@@ -158,7 +158,7 @@ class TestTargetFiles(TestCase):
 
     def test_toolchain_and_flags_with_local_overrides(self):
         build = setup_build(global_target_file, "b")
-        cxx, ar, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, global_target_file)
+        cxx, ar, cxx_flags, defines, _, __ = commonbuilds.get_toolchain_and_flags(build, global_target_file)
 
         # Note, these overrides don't make any sense, but it is ok since we're not actually building anything
         # so it doesn't matter.

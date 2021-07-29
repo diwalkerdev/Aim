@@ -1,10 +1,11 @@
 from typing import List, TypeVar
-from pathlib import Path
+from pathlib import Path, PurePath
 
 # Convenient typedefs
 #
 StringList = List[str]
 PathList = List[Path]
+PurePathList = List[PurePath]
 
 # A type variable so function types can vary.
 #

@@ -5,7 +5,7 @@ from typing import Dict, Tuple, List, Union
 
 from aim_build import commonbuilds
 from aim_build.typedefs import StringList, PathList
-from aim_build.utils import prefix, postfix, src_to_obj, prepend_paths, to_str
+from aim_build.utils import prefix, postfix, src_to_obj, prepend_paths, to_str, to_native_path
 from ninja_syntax import Writer
 
 USING_RELATIVE_OUTPUTS = False
@@ -110,6 +110,10 @@ def get_library_information(
         else:
             lib = "lib" + info.name + ".lib"
             libs.append(lib)
+            if USING_RELATIVE_OUTPUTS:
+                implicit_libs.append(str(PureWindowsPath(info.path) / lib))
+            else:
+                implicit_libs.append(lib)
 
     return exps, libs, implicit_exps, implicit_libs
 
@@ -129,6 +133,7 @@ def get_includes_for_build(build: Dict, parsed_toml: Dict) -> StringList:
         includes = commonbuilds.get_include_paths(includes, project_root)
         include_paths.update(includes)
 
+    include_paths = [to_native_path(path) for path in include_paths]
     include_paths = [str(path) for path in include_paths]
 
     include_paths.sort()
@@ -151,7 +156,7 @@ def add_compile_rule(
 ):
     build_name = build["name"]
 
-    compiler, _, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(
+    compiler, _, cxx_flags, defines, __, ___ = commonbuilds.get_toolchain_and_flags(
         build, target_file
     )
     defines = PrefixHashDefine(defines)
@@ -270,7 +275,7 @@ class MSVCBuilds:
         library_name = lib_name_func(build["outputName"])
         relative_output_name = str(PureWindowsPath(build_name) / library_name)
 
-        _, archiver, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(
+        _, archiver, cxx_flags, defines, __, ___ = commonbuilds.get_toolchain_and_flags(
             build, parsed_toml
         )
         defines = PrefixHashDefine(defines)
@@ -296,7 +301,7 @@ class MSVCBuilds:
     def build_executable(pfw: Writer, build: Dict, parsed_toml: Dict):
         build_name = build["name"]
 
-        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(
+        _, __, ___, defines, linker, linker_args = commonbuilds.get_toolchain_and_flags(
             build, parsed_toml
         )
         defines = PrefixHashDefine(defines)
@@ -322,9 +327,9 @@ class MSVCBuilds:
             implicit=implicit_exps + implicit_libs,
             outputs=build_output,
             variables={
-                "compiler": compiler,
+                "compiler": linker,
                 "includes": includes,
-                "flags": " ".join(cxxflags),
+                "flags": " ".join(linker_args),
                 "defines": " ".join(defines),
                 "exe_name": build_output,
                 "linker_args": " ".join(linker_args),
@@ -342,7 +347,7 @@ class MSVCBuilds:
 
         extra_flags = ["/DEXPORT_DLL_PUBLIC"]
 
-        compiler, _, cxxflags, defines = commonbuilds.get_toolchain_and_flags(
+        compiler, _, cxxflags, defines, __, ___ = commonbuilds.get_toolchain_and_flags(
             build, parsed_toml
         )
         defines = PrefixHashDefine(defines)

@@ -2,6 +2,7 @@ import pprint
 import sys
 from pathlib import Path
 from typing import Union, List
+from aim_build.utils import to_native_path
 
 import cerberus
 
@@ -20,7 +21,7 @@ class UniqueNameChecker:
             self.name_lookup.append(value)
 
 
-# TODO: DefinesPrefixChecker could be a function.
+# TODO: Can DefinesPrefixChecker be a function?
 class DefinesPrefixChecker:
     def check(self, field, defines: List[str], error):
         for value in defines:
@@ -45,43 +46,87 @@ class RequiresExistChecker:
                 error(field, f"Build name does not exist: {value}")
 
 
-# TODO: class could be a function.
-class AbsProjectDirPathChecker:
-    def check(self, field, paths, error):
-        paths = [Path(the_path) for the_path in paths]
-
-        for directory in paths:
-            if not directory.is_absolute():
-                error(field, f"Directory path should be absolute: {str(directory)}")
-                break
-
-            # Remember paths can now be directories or specific paths to files.
-            if not directory.exists():
-                error(field, f"Directory does not exist: {str(directory)}")
-                break
-
-
-class RelProjectDirPathChecker:
+class DirectoryPathChecker:
     def __init__(self, project_dir):
         self.project_dir = project_dir
 
     def check(self, field, paths, error):
-        paths = [(self.project_dir / the_path) for the_path in paths]
+        abs_paths = [Path(path) for path in paths if Path(path).is_absolute() is True]
+        rel_paths = [Path(path) for path in paths if Path(path).is_absolute() is False]
+        rel_paths = [(self.project_dir / path) for path in rel_paths]
 
-        for directory in paths:
-            # Remember paths can now be directories or specific paths to files.
-            if not directory.exists():
-                error(field, f'Directory does not exist: "{str(directory)}"')
+        all_paths = abs_paths + rel_paths
+
+        for path in all_paths:
+            if not path.is_dir():
+                error(field, f'Path is not a directory: "{str(path)}"')
+                break
+
+            if not path.exists():
+                error(field, f'Path does not exist: "{str(path)}"')
+                break
+
+
+class SrcPathsChecker:
+    def __init__(self, project_dir):
+        self.project_dir = project_dir
+
+    def check(self, field, paths, error):
+        paths = [to_native_path(path) for path in paths]
+
+        # Resolve relative paths to the build directory, and leave absolute paths alone.
+        #
+        abs_paths = [path for path in paths if path.is_absolute() is True]
+        rel_paths = [(self.project_dir / path) for path in paths if path.is_absolute() is False]
+        all_paths = abs_paths + rel_paths
+
+        for path in all_paths:
+            # Historically, paths to directories were allowed, but I've decided that it is better to specify directories
+            # using a glob with a file extension, as this means we can support any file type without having to
+            # explicitly manage the file types that we support.
+            if path.is_dir():
+                error(field, f'Src path is a directory. Src paths should be a glob or a specific file.: "{str(path)}"')
+                break
+
+            # Remember paths can now be specific paths to files, or globs of the form <path>/*.<extension>.
+            # We don't allow recursive globs. <path>/**/*.<extension>
+            elif path.stem == "**":
+                error(field, f'Recursive globs are not supported: "{str(path)}"')
+                break
+
+            elif path.stem == "*":
+                parent = path.parent
+                if not parent.exists():
+                    error(field, f'The parent glob directory does not exist: "{str(parent)}"')
+                    break
+
+                if not len(list(parent.glob(path.name))):
+                    error(field, f'The glob does not match any files: "{str(path)}"')
+                    break
+
+            elif not path.exists():
+                error(field, f'Path does not exist: "{str(path)}"')
                 break
 
 
 class AimCustomValidator(cerberus.Validator):
-    def _check_with_output_naming_convention(self, field, value: Union[str, list]):
-        # if you need more context then you can get it using the line below.
-        # if self.document["buildRule"] in ["staticLib", "dynamicLib"]:
+    # def __init__(self, *args, **kwargs):
+    #     super(AimCustomValidator, self).__init__(args, kwargs)
+    #     self.name_lookup = []
 
-        # TODO: should we also check that the names are camelCase?
-        # TODO: check outputNames are unique to prevent dependency cycle.
+    def check_output_is_unique(self, field, value):
+        if value in self.name_lookup:
+            self._error(
+                field,
+                f'The output name must be unique. "{value}" has already been used.',
+            )
+        else:
+            self.name_lookup.append(value)
+
+    def _check_with_output_naming_convention(self, field, value: Union[str, list]):
+        # Only check the convention when building libraries. Exes need more flexibility when building for Arduino etc.
+        if self.document["buildRule"] not in ["staticLib", "dynamicLib"]:
+            return
 
         def check_convention(_field, _value):
             the_errors = []
@@ -103,6 +148,7 @@ class AimCustomValidator(cerberus.Validator):
             value = [value]
 
         for item in value:
+            # self.check_output_is_unique(field, item)
             errors = check_convention(field, item)
 
             if errors:
@@ -119,8 +165,8 @@ class AimCustomValidator(cerberus.Validator):
 def target_schema(document, project_dir):
     unique_name_checker = UniqueNameChecker()
     requires_exist_checker = RequiresExistChecker(document)
-    path_checker = RelProjectDirPathChecker(project_dir)
-    abs_path_checker = AbsProjectDirPathChecker()
+    source_path_checker = SrcPathsChecker(project_dir)
+    directory_path_checker = DirectoryPathChecker(project_dir)
     defines_checker = DefinesPrefixChecker()
 
     schema = {
@@ -172,6 +218,20 @@ def target_schema(document, project_dir):
                             "buildRule": ["exe", "staticLib", "dynamicLib"]
                         },
                     },
+                    "linker": {
+                        "required": False,
+                        "type": "string",
+                        "dependencies": {
+                            "buildRule": ["exe"]
+                        },
+                    },
+                    "linker_flags": {
+                        "required": False,
+                        "type": "list",
+                        "dependencies": {
+                            "buildRule": ["exe"]
+                        },
+                    },
                     "defines": {
                         "type": "list",
                         "schema": {"type": "string"},
@@ -209,7 +269,7 @@ def target_schema(document, project_dir):
                         "empty": False,
                         "type": "list",
                         "schema": {"type": "string"},
-                        "check_with": path_checker.check,
+                        "check_with": source_path_checker.check,
                         "dependencies": {
                             "buildRule": ["exe", "staticLib", "dynamicLib"]
                         },
@@ -218,20 +278,20 @@ def target_schema(document, project_dir):
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
-                        "check_with": path_checker.check,
+                        "check_with": directory_path_checker.check,
                     },
                     "systemIncludePaths": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
-                        "check_with": abs_path_checker.check,
+                        "check_with": directory_path_checker.check,
                         "dependencies": {"compilerFrontend": "gcc"},
                     },
                     "localIncludePaths": {
                         "type": "list",
                         "empty": False,
                         "schema": {"type": "string"},
-                        "check_with": path_checker.check,
+                        "check_with": directory_path_checker.check,
                         "dependencies": {"compilerFrontend": "gcc"},
                     },
                     "libraryPaths": {
