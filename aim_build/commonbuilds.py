@@ -43,9 +43,9 @@ def get_include_paths(include_paths: List[PurePosixPath], build_dir: PurePosixPa
     return includes
 
 
-def get_toolchain_and_flags(
-    build: Dict, target_file: Dict
-) -> Tuple[str, str, StringList, StringList, str, StringList]:
+def get_toolchain_and_flags(build: Dict,
+                            target_file: Dict) \
+        -> Tuple[str, str, StringList, StringList, str, StringList]:
     local_compiler = build.get("compiler", None)
     local_archiver = build.get("archiver", None)
     local_flags = build.get("flags", None)
@@ -67,7 +67,7 @@ def get_toolchain_and_flags(
 
 def get_src_files(build: Dict, target_file: Dict) -> StringList:
     project_dir = get_project_dir(build, target_file)
-    paths = build["srcDirs"]
+    paths = build["sourceFiles"]
     paths = [to_native_path(path) for path in paths]
 
     # Resolve relative paths to the build directory, and leave absolute paths alone.

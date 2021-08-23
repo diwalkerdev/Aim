@@ -7,9 +7,7 @@ import zipfile
 from pathlib import Path
 
 import toml
-from aim_build import gccbuildrules
 from aim_build import gccbuilds
-from aim_build import msvcbuildrules
 from aim_build import msvcbuilds
 from aim_build.common import DEMO_ZIP_FILE_NAME
 from aim_build.commonbuilds import find_build
@@ -149,18 +147,18 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
         project_writer = Writer(project_fd)
         # project_writer.include(str(build_dir / "rules.ninja"))
         if frontend == "msvc":
-            msvcbuildrules.add_compile(project_writer)
-            msvcbuildrules.add_ar(project_writer)
-            msvcbuildrules.add_exe(project_writer)
-            msvcbuildrules.add_shared(project_writer)
+            msvcbuilds.add_compile(project_writer)
+            msvcbuilds.add_ar(project_writer)
+            msvcbuilds.add_exe(project_writer)
+            msvcbuilds.add_shared(project_writer)
         elif frontend == "osx":
             # builder = osxbuilds.OsxBuilds()
             assert False, "OSX frontend is currently not supported."
         else:
-            gccbuildrules.add_compile(project_writer)
-            gccbuildrules.add_ar(project_writer)
-            gccbuildrules.add_exe(project_writer)
-            gccbuildrules.add_shared(project_writer)
+            gccbuilds.add_compile(project_writer)
+            gccbuilds.add_ar(project_writer)
+            gccbuilds.add_exe(project_writer)
+            gccbuilds.add_shared(project_writer)
 
         for build_info in builds:
             current_build = build_info

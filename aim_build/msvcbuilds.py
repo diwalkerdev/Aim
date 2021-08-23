@@ -18,6 +18,42 @@ PostFixLib = functools.partial(postfix, ".lib")
 ToObjectFiles = src_to_obj
 
 
+def add_compile(nfw):
+    # Note, there cannot be a space between /Fo and $out
+    command = "$compiler $flags $defines $includes /showIncludes /c $in /Fo$out"
+    nfw.rule(
+        name="compile",
+        description="Compile source files to object files",
+        deps="msvc",
+        depfile="deps.d",
+        command=command,
+    )
+    nfw.newline()
+
+
+def add_ar(nfw):
+    nfw.rule(
+        name="archive",
+        description="Combine object files into an archive",
+        command="llvm-ar cr $out $in",
+    )
+    nfw.newline()
+
+
+def add_exe(nfw):
+    command = (
+        "$compiler $flags $defines $includes $in /link /out:$exe_name $linker_args"
+    )
+    nfw.rule(name="exe", description="Build an executable.", command=command)
+    nfw.newline()
+
+
+def add_shared(nfw):
+    command = "$compiler $flags $defines $includes $in /link /DLL /out:$lib_name $linker_args"
+    nfw.rule(name="shared", description="Build a shared library.", command=command)
+    nfw.newline()
+
+
 # TODO: Should take version strings as well?
 def windows_add_static_library_naming_convention(library_name: str) -> str:
     return f"lib{library_name}.lib"
@@ -87,7 +123,7 @@ def get_external_libraries_information(build: Dict) -> Tuple[StringList, PathLis
 
 
 def get_library_information(
-    lib_infos: List[commonbuilds.LibraryInformation],
+        lib_infos: List[commonbuilds.LibraryInformation],
 ) -> Tuple[List, List, List, List]:
     exps = []
     libs = []
@@ -148,11 +184,11 @@ def get_src_for_build(build: Dict, parsed_toml: Dict) -> List[PureWindowsPath]:
 
 
 def add_compile_rule(
-    writer: Writer,
-    build: Dict,
-    target_file: Dict,
-    includes: StringList,
-    extra_flags: StringList = None,
+        writer: Writer,
+        build: Dict,
+        target_file: Dict,
+        includes: StringList,
+        extra_flags: StringList = None,
 ):
     build_name = build["name"]
 
@@ -223,12 +259,12 @@ def generate_linker_args(build: Dict, parsed_toml: Dict):
     ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
 
     linker_args = (
-        requires_library_paths
-        + external_libraries_paths
-        + ref_library_paths
-        + requires_libraries
-        + external_libraries_names
-        + ref_libraries
+            requires_library_paths
+            + external_libraries_paths
+            + ref_library_paths
+            + requires_libraries
+            + external_libraries_names
+            + ref_libraries
     )
     return linker_args
 
@@ -265,7 +301,7 @@ class MSVCBuilds:
 
     @staticmethod
     def build_static_library(
-        pfw: Writer, build: Dict, parsed_toml: Dict, lib_name_func: Callable[[str], str]
+            pfw: Writer, build: Dict, parsed_toml: Dict, lib_name_func: Callable[[str], str]
     ):
         build_name = build["name"]
 

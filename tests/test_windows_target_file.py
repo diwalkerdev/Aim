@@ -19,7 +19,7 @@ global_target_file = {
             "buildRule": "exe",
             "requires": ["b", "c", "r", "i"],
             "includePaths": ["a/include"],
-            "srcDirs": ["a/src/*.cpp"],
+            "sourceFiles": ["a/src/*.cpp"],
             "outputName": "a",
             "libraryPaths": ["C:/SDL2"],
             "libraries": ["SDL2", "SDL2_image"]
@@ -31,7 +31,7 @@ global_target_file = {
             "defines": ["EnableOtherFeature"],
             "name": "b",
             "buildRule": "staticLib",
-            "srcDirs": ["b/src/file_0.c"],
+            "sourceFiles": ["b/src/file_0.c"],
             "includePaths": ["b/include", "C:/include", "b/local/include"],
             "outputName": "b"
         },
@@ -39,7 +39,7 @@ global_target_file = {
             "name": "c",
             "buildRule": "dynamicLib",
             "includePaths": ["c/include"],
-            "srcDirs": ["c/src"],
+            "sourceFiles": ["c/src/*.cpp"],
             "outputName": "c"
         },
         {
@@ -170,7 +170,7 @@ class TestTargetFiles(TestCase):
     def test_get_src_files(self):
         # Notes:
         #   + src files are relative to build directory.
-        #   + srcDirs accepts directories or specific src files.
+        #   + sourceFiles accepts directories or specific src files.
         tmp_dir = make_tmp_directory_structure()
         with tmp_dir:
             build_a = setup_build(global_target_file, "a", tmp_dir.name)

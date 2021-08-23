@@ -104,7 +104,7 @@ Next specify your builds. For each build you must specify the `name` and `buildR
     buildRule = "exe"
     requires = ["calculatorDynamic"] # A list of dependencies for this build.
     outputName = "CalculatorApp"     # The output name. Aim will manage any prefixes or suffixes required.
-    srcDirs = ["src"]                # A list of source directories.
+    sourceFiles = ["src"]                # A list of source directories.
     includePaths = ["include"]       # A list of include paths.
     # The libraryPaths and libraries fields can be used to specify additional
     # libraries and paths to the build. This allows for linking against third
@@ -117,9 +117,9 @@ Other notes:
 
 * The `requires` field is important as it is how you specify the dependencies for a build. For example, if you create a static library named "myAwesomeLibrary", this can be used in other builds simply by specifying  `requires=["myAwesomeLibrary"]`. 
 
-* A `headerOnly` build does not have an `outputName` or `srcDirs` as it is not built. The `headerOnly` rule is not essential and is mostly for convenience. If you have a header only library, repeating the include paths across several builds can be become repetitive. Instead, create a `headerOnly` build to capture the include paths and use it in other builds by adding the rule to the builds `requires` field. 
+* A `headerOnly` build does not have an `outputName` or `sourceFiles` as it is not built. The `headerOnly` rule is not essential and is mostly for convenience. If you have a header only library, repeating the include paths across several builds can be become repetitive. Instead, create a `headerOnly` build to capture the include paths and use it in other builds by adding the rule to the builds `requires` field. 
 
-* A `libraryReference` does not have `srcDirs` as it is not built. Like the `headerOnly` rule it is mostly for convience to reduce duplication. The primary use case is for capturing the `includePaths`, `libraryPaths` and `libraries` of a third party library that you need to use in a build. A `libraryReference` can then be used by other builds by adding it to a builds `requires` field.
+* A `libraryReference` does not have `sourceFiles` as it is not built. Like the `headerOnly` rule it is mostly for convience to reduce duplication. The primary use case is for capturing the `includePaths`, `libraryPaths` and `libraries` of a third party library that you need to use in a build. A `libraryReference` can then be used by other builds by adding it to a builds `requires` field.
 
 
 * The fields `compiler`, `flags` and `defines` are normally written at the top of the target file before the builds section. By default, all builds will use these fields i.e. they are global, but they can also be overridden by specifying them again in a build. Note that when these fields are specified specifically for a build, they completely replace the global definition; any `flags` or `defines` that you specify must be written out in full as they will not share any values with the global definition.

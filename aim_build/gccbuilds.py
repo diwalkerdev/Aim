@@ -24,6 +24,40 @@ PrefixHashDefine = functools.partial(prefix, "-D")
 ToObjectFiles = src_to_o
 
 
+def add_compile(nfw: Writer):
+    command = "$compiler $defines $flags -MMD -MF deps.d $includes -c $in -o $out"
+    nfw.rule(
+        name="compile",
+        description="Compiles source files into object files",
+        deps="gcc",
+        depfile="deps.d",
+        command=command,
+    )
+    nfw.newline()
+
+
+def add_ar(nfw: Writer):
+    nfw.rule(
+        name="archive",
+        description="Combine object files into an archive",
+        command="$archiver crs $out $in",
+    )
+    nfw.newline()
+
+
+def add_exe(nfw: Writer):
+    # TODO: origin should only really be added when we need to link against an so.
+    command = "$compiler $defines $flags $includes $in -o $out $linker_args"
+    nfw.rule(name="exe", description="Builds an executable.", command=command)
+    nfw.newline()
+
+
+def add_shared(nfw: Writer):
+    command = "$compiler $defines -shared -fvisibility=hidden -fPIC $flags $includes $in -o $out $linker_args"
+    nfw.rule(name="shared", description="Builds a shared library.", command=command)
+    nfw.newline()
+
+
 # TODO: Should take version strings as well?
 def linux_add_static_library_naming_convention(library_name: str) -> str:
     return f"lib{library_name}.a"
@@ -130,11 +164,11 @@ def get_src_for_build(build: Dict, parsed_toml: Dict) -> List[PurePosixPath]:
 
 
 def add_compile_rule(
-    writer: Writer,
-    build: Dict,
-    target_file: Dict,
-    includes: StringList,
-    extra_flags: StringList = None,
+        writer: Writer,
+        build: Dict,
+        target_file: Dict,
+        includes: StringList,
+        extra_flags: StringList = None,
 ):
     build_name = build["name"]
 
@@ -275,7 +309,7 @@ class GCCBuilds:
 
     @staticmethod
     def build_static_library(
-        pfw: Writer, build: Dict, parsed_toml: Dict, lib_name_func: Callable[[str], str]
+            pfw: Writer, build: Dict, parsed_toml: Dict, lib_name_func: Callable[[str], str]
     ):
         build_name = build["name"]
 
@@ -395,11 +429,11 @@ class GCCBuilds:
 # TODO: Is exe naming convention needed anymore?
 # When supporting arduino, we need to output an elf file, so forcing the convention to be .exe doesn't make sense.
 def add_naming_convention(
-    output_name: str,
-    build_type: str,
-    static_convention_func=linux_add_static_library_naming_convention,
-    dynamic_convention_func=linux_add_dynamic_library_naming_convention,
-    exe_convention_func=lambda x: x,
+        output_name: str,
+        build_type: str,
+        static_convention_func=linux_add_static_library_naming_convention,
+        dynamic_convention_func=linux_add_dynamic_library_naming_convention,
+        exe_convention_func=lambda x: x,
 ):
     if build_type == "staticLib":
         new_name = static_convention_func(output_name)

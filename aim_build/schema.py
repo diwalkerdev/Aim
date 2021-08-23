@@ -84,13 +84,10 @@ class SrcPathsChecker:
             # Historically, paths to directories were allowed, but I've decided that it is better to specify directories
             # using a glob with a file extension, as this means we can support any file type without having to
             # explicitly manage the file types that we support.
-            if path.is_dir():
-                error(field, f'Src path is a directory. Src paths should be a glob or a specific file.: "{str(path)}"')
-                break
 
             # Remember paths can now be specific paths to files, or globs of the form <path>/*.<extension>.
             # We don't allow recursive globs. <path>/**/*.<extension>
-            elif path.stem == "**":
+            if path.stem == "**":
                 error(field, f'Recursive globs are not supported: "{str(path)}"')
                 break
 
@@ -103,6 +100,10 @@ class SrcPathsChecker:
                 if not len(list(parent.glob(path.name))):
                     error(field, f'The glob does not match any files: "{str(path)}"')
                     break
+
+            elif path.is_dir():
+                error(field, f'Src path is a directory. Src paths should be a glob or a specific file.: "{str(path)}"')
+                break
 
             elif not path.exists():
                 error(field, f'Path does not exist: "{str(path)}"')
@@ -264,7 +265,7 @@ def target_schema(document, project_dir):
                         "empty": False,
                         "check_with": "output_naming_convention",
                     },
-                    "srcDirs": {
+                    "sourceFiles": {
                         "required": False,
                         "empty": False,
                         "type": "list",
