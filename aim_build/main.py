@@ -166,14 +166,14 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
             current_build["build_dir"] = build_dir
 
             if frontend == "msvc":
-                builder = msvcbuilds.MSVCBuilds()
+                builder = msvcbuilds.run_build
             elif frontend == "osx":
                 # builder = osxbuilds.OsxBuilds()
                 assert False, "OSX frontend is currently not supported."
             else:
-                builder = gccbuilds.GCCBuilds()
+                builder = gccbuilds.run_build
 
-            builder.build(build_info, parsed_toml, project_writer, args)
+            builder(build_info, parsed_toml, project_writer, args)
 
 
 def make_build_dir():
@@ -256,7 +256,6 @@ def run_list(target_path):
             dynamic_convection_func = (
                 msvcbuilds.windows_add_dynamic_library_naming_convention
             )
-            exe_convention_func = msvcbuilds.windows_add_exe_naming_convention
         elif frontend == "osx":
             assert False, "OSX frontend is currently not supported."
         else:
@@ -266,22 +265,25 @@ def run_list(target_path):
             dynamic_convection_func = (
                 gccbuilds.linux_add_dynamic_library_naming_convention
             )
-            exe_convention_func = gccbuilds.linux_add_exe_naming_convention
 
         header = ["Item", "Name", "Build Rule", "Output Name"]
         table = []
 
+        from aim_build.commonbuilds import BuildTypes
         for number, build in enumerate(builds):
-            if build["buildRule"] in ["libraryReference", "headerOnly"]:
+            build_type = BuildTypes[build["buildRule"]]
+            if build_type in [BuildTypes.libraryReference, BuildTypes.headerOnly]:
                 output_name = "n.a."
-            else:
+            elif build_type in [BuildTypes.staticLibrary, BuildTypes.dynamicLibrary]:
                 output_name = gccbuilds.add_naming_convention(
                     build["outputName"],
                     build["buildRule"],
                     static_convention_func,
                     dynamic_convection_func,
-                    exe_convention_func,
                 )
+            else:
+                output_name = output_name
+
             row = [number, build["name"], build["buildRule"], output_name]
             table.append(row)
 

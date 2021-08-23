@@ -64,10 +64,6 @@ def windows_add_dynamic_library_naming_convention(library_name: str) -> str:
     return f"lib{library_name}.dll"
 
 
-def windows_add_exe_naming_convention(exe_name: str) -> str:
-    return f"{exe_name}.exe"
-
-
 def convert_posix_to_windows(paths: Union[StringList, List[PurePosixPath]]):
     return [str(path).replace("/", "\\") for path in paths]
 
@@ -267,35 +263,34 @@ def generate_linker_args(build: Dict, parsed_toml: Dict):
     return linker_args
 
 
-class MSVCBuilds:
-    def build(self, build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
-        # TODO forward args
-        the_build = BuildTypes[build["buildRule"]]
-        build_name = build["name"]
-        build_dir = build["build_dir"]
+def run_build(build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
+    # TODO forward args
+    the_build = BuildTypes[build["buildRule"]]
+    build_name = build["name"]
+    build_dir = build["build_dir"]
 
-        build_path = build_dir / build_name
-        build_path.mkdir(parents=True, exist_ok=True)
+    build_path = build_dir / build_name
+    build_path.mkdir(parents=True, exist_ok=True)
 
-        build["buildPath"] = build_path
+    build["buildPath"] = build_path
 
-        if the_build == BuildTypes.staticLibrary:
-            build_static_library(
-                ninja_writer,
-                build,
-                parsed_toml,
-                windows_add_static_library_naming_convention,
-            )
-        elif the_build == BuildTypes.executable:
-            build_executable(ninja_writer, build, parsed_toml)
-        elif the_build == BuildTypes.dynamicLibrary:
-            build_dynamic_library(ninja_writer, build, parsed_toml)
-        elif the_build == BuildTypes.headerOnly:
-            pass
-        elif the_build == BuildTypes.libraryReference:
-            pass
-        else:
-            raise RuntimeError(f"Unknown build type {the_build}.")
+    if the_build == BuildTypes.staticLibrary:
+        build_static_library(
+            ninja_writer,
+            build,
+            parsed_toml,
+            windows_add_static_library_naming_convention,
+        )
+    elif the_build == BuildTypes.executable:
+        build_executable(ninja_writer, build, parsed_toml)
+    elif the_build == BuildTypes.dynamicLibrary:
+        build_dynamic_library(ninja_writer, build, parsed_toml)
+    elif the_build == BuildTypes.headerOnly:
+        pass
+    elif the_build == BuildTypes.libraryReference:
+        pass
+    else:
+        raise RuntimeError(f"Unknown build type {the_build}.")
 
 
 def build_static_library(pfw: Writer,
@@ -350,7 +345,7 @@ def build_executable(pfw: Writer, build: Dict, parsed_toml: Dict):
 
     linker_args = generate_linker_args(build, parsed_toml)
 
-    exe_name = windows_add_exe_naming_convention(build["outputName"])
+    exe_name = build["outputName"]
     if USING_RELATIVE_OUTPUTS:
         build_output = str(PureWindowsPath(build_name) / exe_name)
     else:
