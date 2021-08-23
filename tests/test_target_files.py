@@ -28,7 +28,7 @@ global_target_file = {
     "builds": [
         {
             "name": "a",
-            "buildRule": "exe",
+            "buildRule": "executable",
             "requires": ["b", "c", "r", "i"],
             "includePaths": ["a/include"],
             "sourceFiles": ["a/src/*.cpp"],
@@ -42,7 +42,7 @@ global_target_file = {
             "flags": ["-std=c99"],
             "defines": ["EnableOtherFeature"],
             "name": "b",
-            "buildRule": "staticLib",
+            "buildRule": "staticLibrary",
             "sourceFiles": ["b/src/file_0.c"],
             "includePaths": ["b/include"],
             "systemIncludePaths": ["/usr/include"],
@@ -51,7 +51,7 @@ global_target_file = {
         },
         {
             "name": "c",
-            "buildRule": "dynamicLib",
+            "buildRule": "dynamicLibrary",
             "includePaths": ["c/include"],
             "sourceFiles": ["c/src"],
             "outputName": "c"
@@ -249,11 +249,11 @@ class TestTargetFiles(TestCase):
 
         self.assertEqual(lib_info[0].name, "b")
         self.assertEqual(lib_info[0].path, "b")
-        self.assertEqual(lib_info[0].type, "staticLib")
+        self.assertEqual(lib_info[0].type, "staticLibrary")
 
         self.assertEqual(lib_info[1].name, "c")
         self.assertEqual(lib_info[1].path, "c")
-        self.assertEqual(lib_info[1].type, "dynamicLib")
+        self.assertEqual(lib_info[1].type, "dynamicLibrary")
 
         requires_libraries = PrefixLibrary([info.name for info in lib_info])
         requires_library_paths = PrefixLibraryPath([info.path for info in lib_info])

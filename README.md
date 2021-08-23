@@ -95,13 +95,13 @@ flags = [
 # defines = [...] # Defines do not need the -D prefix.
 ```
 
-Next specify your builds. For each build you must specify the `name` and `buildRule`. Valid build rules are `staticLib`,
-`dynamicLib`, `exe`, `headerOnly` or `libraryReference`. A build typically looks like:
+Next specify your builds. For each build you must specify the `name` and `buildRule`. Valid build rules are 
+`staticLibrary`, `dynamicLibrary`, `executable`, `headerOnly` or `libraryReference`. A build typically looks like:
 
 ```
 [[builds]]
     name = "calculatorApp"
-    buildRule = "exe"
+    buildRule = "executable"
     requires = ["calculatorDynamic"] # A list of dependencies for this build.
     outputName = "CalculatorApp"     # The output name. Aim will manage any prefixes or suffixes required.
     sourceFiles = ["src"]                # A list of source directories.

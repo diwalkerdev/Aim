@@ -212,7 +212,8 @@ def get_rpath(build: Dict, parsed_toml: Dict) -> str:
     # TODO: replace the below with the above.
     for required in requires:
         the_dep = commonbuilds.find_build(required, parsed_toml["builds"])
-        if the_dep["buildRule"] == "dynamicLib":
+        build_type = BuildTypes[the_dep["buildRule"]]
+        if build_type == BuildTypes.dynamicLibrary:
             library_names.update([the_dep["name"]])
 
     # Note, thinking aloud here as not 100% sure this is the correct thing to do.
@@ -277,11 +278,14 @@ def generate_linker_args(build, parsed_toml):
     return linker_args
 
 
+from aim_build.commonbuilds import BuildTypes
+
+
 class GCCBuilds:
     def build(self, build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
         # TODO forward args
+        the_build = BuildTypes[build["buildRule"]]
         build_name = build["name"]
-        the_build = build["buildRule"]
         build_dir = build["build_dir"]
 
         build_path = build_dir / build_name
@@ -289,20 +293,20 @@ class GCCBuilds:
 
         build["buildPath"] = build_path
 
-        if the_build == "staticLib":
+        if the_build == BuildTypes.staticLibrary:
             self.build_static_library(
                 ninja_writer,
                 build,
                 parsed_toml,
                 linux_add_static_library_naming_convention,
             )
-        elif the_build == "exe":
+        elif the_build == BuildTypes.executable:
             self.build_executable(ninja_writer, build, parsed_toml)
-        elif the_build == "dynamicLib":
+        elif the_build == BuildTypes.dynamicLibrary:
             self.build_dynamic_library(ninja_writer, build, parsed_toml)
-        elif the_build == "headerOnly":
+        elif the_build == BuildTypes.headerOnly:
             pass
-        elif the_build == "libraryReference":
+        elif the_build == BuildTypes.libraryReference:
             pass
         else:
             raise RuntimeError(f"Unknown build type {the_build}.")
@@ -430,14 +434,14 @@ class GCCBuilds:
 # When supporting arduino, we need to output an elf file, so forcing the convention to be .exe doesn't make sense.
 def add_naming_convention(
         output_name: str,
-        build_type: str,
+        build_type: BuildTypes,
         static_convention_func=linux_add_static_library_naming_convention,
         dynamic_convention_func=linux_add_dynamic_library_naming_convention,
         exe_convention_func=lambda x: x,
 ):
-    if build_type == "staticLib":
+    if build_type == BuildTypes.staticLibrary:
         new_name = static_convention_func(output_name)
-    elif build_type == "dynamicLib":
+    elif build_type == BuildTypes.dynamicLibrary:
         new_name = dynamic_convention_func(output_name)
     else:
         new_name = exe_convention_func(output_name)

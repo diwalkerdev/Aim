@@ -82,7 +82,7 @@ def to_path_root(build_path: PurePath) -> PurePath:
     return rel_path
 
 
-def to_native_path(path: PurePosixPath) -> Path:
+def to_native_path(path: PurePath) -> Path:
     # Have to be careful when converting from posix to windows paths.
     # If you have a posix path object pointing to C:/some/path/somewhere and simply do:
     #   Path(posix_path)

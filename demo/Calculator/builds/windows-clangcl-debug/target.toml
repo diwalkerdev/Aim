@@ -10,21 +10,21 @@ flags = [
 
 [[builds]]
 name = "calculatorstatic"
-buildRule = "staticLib"
+buildRule = "staticLibrary"
 outputName = "CalculatorStatic"
 sourceFiles = ["lib/*.cpp"]
 includePaths = ["include"]
 
 [[builds]]
 name = "calculatordynamic"
-buildRule = "dynamicLib"
+buildRule = "dynamicLibrary"
 outputName = "CalculatorShared"
 sourceFiles = ["lib/*.cpp"]
 includePaths = ["include"]
 
 [[builds]]
 name = "calculatortests"
-buildRule = "exe"
+buildRule = "executable"
 requires = ["calculatordynamic"]
 outputName = "CalculatorTests"
 sourceFiles = ["tests/*.cpp"]
@@ -37,7 +37,7 @@ includePaths = ["include"]
 
 [[builds]]
 name = "calculatorapp"
-buildRule = "exe"
+buildRule = "executable"
 requires = ["calculatordynamic"]
 outputName = "CalculatorApp"
 sourceFiles = ["src/*.cpp"]

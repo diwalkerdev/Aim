@@ -1,10 +1,19 @@
 from dataclasses import dataclass
 
-from pathlib import PurePosixPath, Path
+from pathlib import PurePosixPath, PurePath
 from typing import Dict, Tuple, Callable, List
 
 from aim_build.typedefs import StringList
 from aim_build.utils import prepend_paths, to_native_path, to_pure_posix_path, relpaths
+from enum import Enum, auto
+
+
+class BuildTypes(Enum):
+    staticLibrary = auto()
+    dynamicLibrary = auto()
+    executable = auto()
+    headerOnly = auto()
+    libraryReference = auto()
 
 
 @dataclass
@@ -33,7 +42,7 @@ def find_builds_of_type(build_type: str, builds: Dict) -> List[Dict]:
     return [build for build in builds if build["buildRule"] == build_type]
 
 
-def get_include_paths(include_paths: List[PurePosixPath], build_dir: PurePosixPath) -> List[PurePosixPath]:
+def get_include_paths(include_paths: List[PurePath], build_dir: PurePath) -> List[PurePath]:
     include_paths = [to_native_path(path) for path in include_paths]
     abs_paths = [PurePosixPath(str(p).replace("\\", "/")) for p in include_paths if p.is_absolute()]
     rel_paths = [PurePosixPath(str(p).replace("\\", "/")) for p in include_paths if not p.is_absolute()]
@@ -99,9 +108,8 @@ def get_src_files(build: Dict, target_file: Dict) -> StringList:
     return [str(file) for file in src_paths]
 
 
-def get_required_library_information(
-    build: Dict, parsed_toml: Dict
-) -> List[LibraryInformation]:
+def get_required_library_information(build: Dict,
+                                     parsed_toml: Dict) -> List[LibraryInformation]:
     requires = build.get("requires", [])
     if not requires:
         return []
@@ -109,9 +117,12 @@ def get_required_library_information(
     build_names = []  # Used to prevent duplicates.
     result = []
 
+    library_types = [BuildTypes.staticLibrary, BuildTypes.dynamicLibrary]
+
     for required in requires:
         the_dep = find_build(required, parsed_toml["builds"])
-        if not the_dep["buildRule"] in ["staticLib", "dynamicLib"]:
+        build_type = BuildTypes[the_dep["buildRule"]]
+        if build_type not in library_types:
             continue
 
         build_name = the_dep["name"]
@@ -126,7 +137,7 @@ def get_required_library_information(
 
 
 def get_reference_library_information(
-    build: Dict, parsed_toml: Dict
+        build: Dict, parsed_toml: Dict
 ) -> Tuple[List[str], List[str]]:
     requires = build.get("requires", [])
     if not requires:
@@ -137,7 +148,8 @@ def get_reference_library_information(
     library_paths = []
     for required in requires:
         the_dep = find_build(required, parsed_toml["builds"])
-        if the_dep["buildRule"] != "libraryReference":
+        build_type = BuildTypes[the_dep["buildRule"]]
+        if build_type != BuildTypes.libraryReference:
             continue
 
         build_name = the_dep["name"]
@@ -150,18 +162,19 @@ def get_reference_library_information(
 
 
 def get_full_library_name_convention(
-    lib_infos: List[LibraryInformation],
-    static_convention_func: Callable[[str], str],
-    dynamic_convention_func: Callable[[str], str],
+        lib_infos: List[LibraryInformation],
+        static_convention_func: Callable[[str], str],
+        dynamic_convention_func: Callable[[str], str],
 ) -> StringList:
     # Here we just need to manage the fact that the linker's library flag (-l) needs the library name without
     # lib{name}.a/.so but the build dependency rule does need the full convention to find the build rule in the
     # build.ninja file.
     full_library_names = []
     for info in lib_infos:
-        if info.type == "staticLib":
+        build_type = BuildTypes[info.type]
+        if build_type == BuildTypes.staticLibrary:
             full_library_names.append(static_convention_func(info.name))
-        elif info.type == "dynamicLib":
+        elif build_type == BuildTypes.dynamicLibrary:
             full_library_names.append(dynamic_convention_func(info.name))
 
     return full_library_names

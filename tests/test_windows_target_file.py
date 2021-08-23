@@ -30,14 +30,14 @@ global_target_file = {
             "flags": ["/std=c99"],
             "defines": ["EnableOtherFeature"],
             "name": "b",
-            "buildRule": "staticLib",
+            "buildRule": "staticLibrary",
             "sourceFiles": ["b/src/file_0.c"],
             "includePaths": ["b/include", "C:/include", "b/local/include"],
             "outputName": "b"
         },
         {
             "name": "c",
-            "buildRule": "dynamicLib",
+            "buildRule": "dynamicLibrary",
             "includePaths": ["c/include"],
             "sourceFiles": ["c/src/*.cpp"],
             "outputName": "c"
@@ -140,12 +140,12 @@ class TestTargetFiles(TestCase):
         result = get_includes_for_build(build, global_target_file)
 
         self.assertEqual(len(result), 6)
-        self.assertTrue("/I..\\..\\a\\include" in result)
-        self.assertTrue("/I..\\..\\b\\include" in result)
-        self.assertTrue("/I..\\..\\c\\include" in result)
-        self.assertTrue("/I..\\..\\i\\include" in result)
-        self.assertTrue("/IC:\\include" in result)
-        self.assertTrue("/I..\\..\\b\\local\\include" in result)
+        self.assertTrue('/I"..\\..\\a\\include"' in result)
+        self.assertTrue('/I"..\\..\\b\\include"' in result)
+        self.assertTrue('/I"..\\..\\c\\include"' in result)
+        self.assertTrue('/I"..\\..\\i\\include"' in result)
+        self.assertTrue('/I"C:\\include"' in result)
+        self.assertTrue('/I"..\\..\\b\\local\\include"' in result)
 
     def test_toolchain_and_flags(self):
         build = setup_build(global_target_file, "a")
@@ -219,14 +219,14 @@ class TestTargetFiles(TestCase):
         build_a = setup_build(global_target_file, "a")
         external_libraries_names, external_libraries_paths = get_external_libraries_information(build_a)
         external_libraries_names = PrefixLibrary(external_libraries_names)
-        external_libraries_paths = PrefixLibraryPath(external_libraries_paths)
+        external_libraries_paths = PrefixLibraryPath(wrap_quotes(external_libraries_paths))
 
         self.assertEqual(len(external_libraries_names), 2)
         self.assertTrue("SDL2" in external_libraries_names)
         self.assertTrue("SDL2_image" in external_libraries_names)
 
         self.assertEqual(len(external_libraries_paths), 1)
-        self.assertTrue("/LIBPATH:C:\\SDL2" in external_libraries_paths)
+        self.assertTrue('/LIBPATH:"C:\\SDL2"' in external_libraries_paths)
 
     def test_required_library_information(self):
         build_a = setup_build(global_target_file, "a")
@@ -236,33 +236,33 @@ class TestTargetFiles(TestCase):
 
         self.assertEqual(lib_info[0].name, "b")
         self.assertEqual(lib_info[0].path, "b")
-        self.assertEqual(lib_info[0].type, "staticLib")
+        self.assertEqual(lib_info[0].type, "staticLibrary")
 
         self.assertEqual(lib_info[1].name, "c")
         self.assertEqual(lib_info[1].path, "c")
-        self.assertEqual(lib_info[1].type, "dynamicLib")
+        self.assertEqual(lib_info[1].type, "dynamicLibrary")
 
         requires_libraries = PrefixLibrary([info.name for info in lib_info])
-        requires_library_paths = PrefixLibraryPath([info.path for info in lib_info])
+        requires_library_paths = PrefixLibraryPath(wrap_quotes([info.path for info in lib_info]))
 
         self.assertTrue("b" in requires_libraries)
         self.assertTrue("c" in requires_libraries)
 
-        self.assertTrue("/LIBPATH:b" in requires_library_paths)
-        self.assertTrue("/LIBPATH:c" in requires_library_paths)
+        self.assertTrue('/LIBPATH:"b"' in requires_library_paths)
+        self.assertTrue('/LIBPATH:"c"' in requires_library_paths)
 
     def test_library_reference(self):
         build_a = setup_build(global_target_file, "a")
 
         ref_libraries, ref_library_paths = commonbuilds.get_reference_library_information(build_a, global_target_file)
         ref_libraries = PrefixLibrary(ref_libraries)
-        ref_library_paths = PrefixLibraryPath(convert_posix_to_windows(ref_library_paths))
+        ref_library_paths = PrefixLibraryPath(wrap_quotes(convert_posix_to_windows(ref_library_paths)))
 
         self.assertTrue(len(ref_libraries), 1)
         self.assertTrue("specialLibrary" in ref_libraries)
 
         self.assertTrue(len(ref_library_paths), 1)
-        self.assertTrue("/LIBPATH:C:\\SpecialLibrary" in ref_library_paths)
+        self.assertTrue('/LIBPATH:"C:\\SpecialLibrary"' in ref_library_paths)
 
     def test_full_library_names(self):
         build_a = setup_build(global_target_file, "a")

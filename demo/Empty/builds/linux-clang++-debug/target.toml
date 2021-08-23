@@ -16,14 +16,14 @@ flags = [
 
 [[builds]]                              
     name = "libraryname"
-    buildRule = "staticLib" # or dynamicLib
+    buildRule = "staticLibrary" # or dynamicLibrary
     outputName = "LibraryName"
     sourceFiles = ["lib/*.cpp"]
     includePaths = ["include"]
 
 [[builds]]
     name = "tests"
-    buildRule = "exe"
+    buildRule = "executable"
     requires = ["libraryname"]
     outputName = "Tests"
     sourceFiles = ["tests/*.cpp"]
@@ -36,7 +36,7 @@ flags = [
 
 [[builds]]
     name = "application"
-    buildRule = "exe"
+    buildRule = "executable"
     requires = ["libraryname"]
     outputName = "Applicatoin"
     sourceFiles = ["src/*.cpp"]

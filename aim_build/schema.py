@@ -109,7 +109,7 @@ class SrcPathsChecker:
                 error(field, f'Path does not exist: "{str(path)}"')
                 break
 
-
+from aim_build.commonbuilds import BuildTypes
 class AimCustomValidator(cerberus.Validator):
     # def __init__(self, *args, **kwargs):
     #     super(AimCustomValidator, self).__init__(args, kwargs)
@@ -126,7 +126,9 @@ class AimCustomValidator(cerberus.Validator):
 
     def _check_with_output_naming_convention(self, field, value: Union[str, list]):
         # Only check the convention when building libraries. Exes need more flexibility when building for Arduino etc.
-        if self.document["buildRule"] not in ["staticLib", "dynamicLib"]:
+
+        library_types = [BuildTypes.staticLibrary.name, BuildTypes.dynamicLibrary.name]
+        if self.document["buildRule"] not in library_types:
             return
 
         def check_convention(_field, _value):
@@ -200,7 +202,8 @@ def target_schema(document, project_dir):
                     "buildRule": {
                         "required": True,
                         "type": "string",
-                        # "allowed": ["exe", "staticLib", "dynamicLib", "headerOnly", "libraryReference"],
+                        # "allowed": ["executable", "staticLibrary", "dynamicLibrary", "headerOnly",
+                        # "libraryReference"],
                         "oneof": [
                             {
                                 "excludes": "outputName",
@@ -208,7 +211,7 @@ def target_schema(document, project_dir):
                             },
                             {
                                 "dependencies": ["outputName"],
-                                "allowed": ["exe", "staticLib", "dynamicLib"],
+                                "allowed": ["executable", "staticLibrary", "dynamicLibrary"],
                             },
                         ],
                     },
@@ -216,21 +219,21 @@ def target_schema(document, project_dir):
                         "required": False,
                         "type": "string",
                         "dependencies": {
-                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                            "buildRule": ["executable", "staticLibrary", "dynamicLibrary"]
                         },
                     },
                     "linker": {
                         "required": False,
                         "type": "string",
                         "dependencies": {
-                            "buildRule": ["exe"]
+                            "buildRule": ["executable"]
                         },
                     },
                     "linker_flags": {
                         "required": False,
                         "type": "list",
                         "dependencies": {
-                            "buildRule": ["exe"]
+                            "buildRule": ["executable"]
                         },
                     },
                     "defines": {
@@ -239,7 +242,7 @@ def target_schema(document, project_dir):
                         "empty": False,
                         "check_with": defines_checker.check,
                         "dependencies": {
-                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                            "buildRule": ["executable", "staticLibrary", "dynamicLibrary"]
                         },
                     },
                     "flags": {
@@ -247,7 +250,7 @@ def target_schema(document, project_dir):
                         "schema": {"type": "string"},
                         "empty": False,
                         "dependencies": {
-                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                            "buildRule": ["executable", "staticLibrary", "dynamicLibrary"]
                         },
                     },
                     "requires": {
@@ -256,7 +259,7 @@ def target_schema(document, project_dir):
                         "schema": {"type": "string"},
                         "check_with": requires_exist_checker.check,
                         "dependencies": {
-                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                            "buildRule": ["executable", "staticLibrary", "dynamicLibrary"]
                         },
                     },
                     # Required but the requirement is handled by build rule.
@@ -272,7 +275,7 @@ def target_schema(document, project_dir):
                         "schema": {"type": "string"},
                         "check_with": source_path_checker.check,
                         "dependencies": {
-                            "buildRule": ["exe", "staticLib", "dynamicLib"]
+                            "buildRule": ["executable", "staticLibrary", "dynamicLibrary"]
                         },
                     },
                     "includePaths": {
@@ -302,7 +305,7 @@ def target_schema(document, project_dir):
                         # you can't check the library dirs as they may not exist if the project not built before.
                         # "check_with": path_checker.check,
                         "dependencies": {
-                            "buildRule": ["exe", "dynamicLib", "libraryReference"]
+                            "buildRule": ["executable", "dynamicLibrary", "libraryReference"]
                         },
                     },
                     "libraries": {
@@ -311,7 +314,7 @@ def target_schema(document, project_dir):
                         "schema": {"type": "string"},
                         "check_with": "output_naming_convention",
                         "dependencies": {
-                            "buildRule": ["exe", "dynamicLib", "libraryReference"]
+                            "buildRule": ["executable", "dynamicLibrary", "libraryReference"]
                         },
                     },
                 },
