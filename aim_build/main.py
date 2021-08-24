@@ -123,24 +123,25 @@ def run_init(demo_zip: zipfile.ZipFile, subdir_name):
         print(f"\t{str(a_dir)}")
         a_dir.mkdir(exist_ok=True)
 
-    if demo_zip:
-        print("Initialising from demo project...")
-        for file_name in demo_zip.namelist():
-            file_name = Path(file_name)
-            if not str(file_name).startswith(subdir_name):
+    assert demo_zip, "Zip file error"
+    print("Initialising from demo project...")
+
+    files = [filename for filename in demo_zip.namelist() if filename.startswith(subdir_name)]
+    assert len(files) > 0, f"Failed to find files for sub dir {subdir_name}"
+
+    for file_name in files:
+        with demo_zip.open(file_name) as the_file:
+            file_path = Path(file_name)
+            relative_path = file_path.relative_to(subdir_name)
+            sys.stdout.write(f"\tCreating {str(relative_path)} ...")
+            if relative_path.exists():
+                print("warning, file already exists.")
                 continue
+            print("okay")
 
-            with demo_zip.open(str(file_name)) as the_file:
-                relative_path = file_name.relative_to(subdir_name)
-                sys.stdout.write(f"\tCreating {str(relative_path)} ...")
-                if relative_path.exists():
-                    print("warning, file already exists.")
-                    continue
-                print("okay")
-
-                relative_path.parent.mkdir(parents=True, exist_ok=True)
-                relative_path.touch()
-                relative_path.write_bytes(the_file.read())
+            relative_path.parent.mkdir(parents=True, exist_ok=True)
+            relative_path.touch()
+            relative_path.write_bytes(the_file.read())
 
 
 def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
@@ -231,6 +232,22 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
         run_ninja(build_dir, the_build["name"])
 
 
+def add_naming_convention(
+        output_name: str,
+        build_type: BuildTypes,
+        static_convention_func,
+        dynamic_convention_func,
+):
+    if build_type == BuildTypes.staticLibrary:
+        new_name = static_convention_func(output_name)
+    elif build_type == BuildTypes.dynamicLibrary:
+        new_name = dynamic_convention_func(output_name)
+    else:
+        assert False, f"Error Invalid build type: {build_type}"
+
+    return new_name
+
+
 def run_list(target_path):
     build_dir = Path().cwd()
 
@@ -259,13 +276,15 @@ def run_list(target_path):
             )
         elif frontend == "osx":
             assert False, "OSX frontend is currently not supported."
-        else:
+        elif frontend == "gcc":
             static_convention_func = (
                 gccbuilds.linux_add_static_library_naming_convention
             )
             dynamic_convection_func = (
                 gccbuilds.linux_add_dynamic_library_naming_convention
             )
+        else:
+            assert False, f"Error: Unknown compiler frontend: {frontend}"
 
         header = ["Item", "Name", "Build Rule", "Output Name"]
         table = []
@@ -275,9 +294,9 @@ def run_list(target_path):
             if build_type in [BuildTypes.libraryReference, BuildTypes.headerOnly]:
                 output_name = "n.a."
             elif build_type in [BuildTypes.staticLibrary, BuildTypes.dynamicLibrary]:
-                output_name = gccbuilds.add_naming_convention(
+                output_name = add_naming_convention(
                     build["outputName"],
-                    build["buildRule"],
+                    build_type,
                     static_convention_func,
                     dynamic_convection_func,
                 )

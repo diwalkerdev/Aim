@@ -3,10 +3,10 @@ from pathlib import PureWindowsPath, PurePosixPath
 from typing import Callable
 from typing import Dict, Tuple, List, Union
 
-from aim_build import commonbuilds
 from aim_build.typedefs import StringList, PathList
 from aim_build.utils import prefix, postfix, src_to_obj, prepend_paths, to_str, to_native_path, wrap_quotes
-from aim_build.commonbuilds import BuildTypes
+from aim_build import commonbuilds
+from aim_build.commonbuilds import BuildTypes, LibraryInformation
 from ninja_syntax import Writer
 
 USING_RELATIVE_OUTPUTS = False
@@ -16,7 +16,6 @@ PrefixLibraryPath = functools.partial(prefix, "/LIBPATH:")
 PrefixLibrary = functools.partial(prefix, "")
 PrefixHashDefine = functools.partial(prefix, "/D")
 PostFixLib = functools.partial(postfix, ".lib")
-ToObjectFiles = src_to_obj
 
 
 def add_compile(nfw):
@@ -76,29 +75,6 @@ def convert_to_implicit_library_files(library):
     return "lib" + library + ".exp", "lib" + library + ".lib"
 
 
-def implicit_library_outputs(libraries):
-    implicits = []
-    for library in libraries:
-        parts = library.split(".")
-        if parts[1] == "dll":
-            implicits.append("lib" + parts[0] + ".exp")
-            implicits.append("lib" + parts[0] + ".lib")
-
-    return implicits
-
-
-def convert_dlls_to_lib(libraries):
-    new_libraries = []
-    for library in libraries:
-        parts = library.split(".")
-        if parts[1] == "dll":
-            new_libraries.append("lib" + parts[0] + ".lib")
-        else:
-            new_libraries.append("lib" + library)
-
-    return new_libraries
-
-
 def get_external_libraries_paths(build):
     directory = PureWindowsPath(build["directory"])
     library_paths = build.get("libraryPaths", [])
@@ -119,7 +95,7 @@ def get_external_libraries_information(build: Dict) -> Tuple[StringList, PathLis
     return libraries, library_paths
 
 
-def get_library_information(lib_infos: List[commonbuilds.LibraryInformation]) -> Tuple[List, List, List, List]:
+def get_library_information(lib_infos: List[LibraryInformation]) -> Tuple[List, List, List, List]:
     exps = []
     libs = []
     # This is a bit confusing, we need just the library names and exp file names as this is what the linker needs, but
@@ -195,7 +171,7 @@ def add_compile_rule(writer: Writer,
         cxx_flags = extra_flags + cxx_flags
 
     src_files = get_src_for_build(build, target_file)
-    obj_files = ToObjectFiles(src_files)
+    obj_files = src_to_obj(src_files)
     obj_files = prepend_paths(PureWindowsPath(build_name), obj_files)
     obj_files = convert_posix_to_windows(obj_files)
 

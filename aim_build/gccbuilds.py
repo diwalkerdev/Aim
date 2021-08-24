@@ -425,22 +425,6 @@ def build_dynamic_library(pfw: Writer, build: Dict, parsed_toml: Dict):
     pfw.newline()
 
 
-def add_naming_convention(
-        output_name: str,
-        build_type: BuildTypes,
-        static_convention_func=linux_add_static_library_naming_convention,
-        dynamic_convention_func=linux_add_dynamic_library_naming_convention,
-):
-    if build_type == BuildTypes.staticLibrary:
-        new_name = static_convention_func(output_name)
-    elif build_type == BuildTypes.dynamicLibrary:
-        new_name = dynamic_convention_func(output_name)
-    else:
-        assert False, "Invalid build type."
-
-    return new_name
-
-
 def log_build_information(build):
     build_name = build["name"]
     cxx_flags = build["global_flags"] + build.get("flags", [])
