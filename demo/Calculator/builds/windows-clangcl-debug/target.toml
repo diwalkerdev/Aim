@@ -26,7 +26,7 @@ includePaths = ["include"]
 name = "calculatortests"
 buildRule = "executable"
 requires = ["calculatordynamic"]
-outputName = "CalculatorTests"
+outputName = "CalculatorTests.exe"
 sourceFiles = ["tests/*.cpp"]
 includePaths = ["include"]
 # The libraryPaths and libraries fields can be used to specify additional
@@ -39,6 +39,6 @@ includePaths = ["include"]
 name = "calculatorapp"
 buildRule = "executable"
 requires = ["calculatordynamic"]
-outputName = "CalculatorApp"
+outputName = "CalculatorApp.exe"
 sourceFiles = ["src/*.cpp"]
 includePaths = ["include"]

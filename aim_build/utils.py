@@ -40,8 +40,12 @@ def postfix(the_postfix, paths) -> StringList:
 
 
 def wrap_quotes(paths: Union[PurePathList, StringList, str]) -> StringList:
-    str_paths = to_str(paths)
-    return [f'"{x}"' for x in str_paths]
+    if isinstance(paths, str):
+        str_path = str(paths)
+        return [f'"{str_path}"']
+    else:
+        str_paths = to_str(paths)
+        return [f'"{x}"' for x in str_paths]
 
 
 def suffix(the_suffix, paths) -> StringList:

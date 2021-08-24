@@ -230,7 +230,8 @@ def generate_linker_args(build: Dict, parsed_toml: Dict):
     # Requires Libraries:
     #
     requires_libraries = PrefixLibrary(link_libraries)
-    requires_library_paths = PrefixLibraryPath([wrap_quotes(info.path) for info in lib_infos])
+    items = [info.path for info in lib_infos]
+    requires_library_paths = PrefixLibraryPath(wrap_quotes(items))
 
     # External Libraries:
     #

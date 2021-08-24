@@ -25,6 +25,14 @@ global_target_file = {
             "libraries": ["SDL2", "SDL2_image"]
         },
         {
+            "name": "x",
+            "buildRule": "exe",
+            "requires": ["b"],
+            "includePaths": ["a/include"],
+            "sourceFiles": ["a/src/*.cpp"],
+            "outputName": "a",
+        },
+        {
             "compiler": "gcc",
             "archiver": "gcc-ar",
             "flags": ["/std=c99"],
@@ -250,6 +258,23 @@ class TestTargetFiles(TestCase):
 
         self.assertTrue('/LIBPATH:"b"' in requires_library_paths)
         self.assertTrue('/LIBPATH:"c"' in requires_library_paths)
+
+    def test_required_library_information_only_one_dep(self):
+        build_a = setup_build(global_target_file, "x")
+
+        # Note, get_required_library_information ignores headerOnly and LibraryReference build rules.
+        lib_info = commonbuilds.get_required_library_information(build_a, global_target_file)
+
+        self.assertEqual(lib_info[0].name, "b")
+        self.assertEqual(lib_info[0].path, "b")
+        self.assertEqual(lib_info[0].type, "staticLibrary")
+
+        requires_libraries = PrefixLibrary([info.name for info in lib_info])
+        requires_library_paths = PrefixLibraryPath(wrap_quotes([info.path for info in lib_info]))
+
+        self.assertTrue("b" in requires_libraries)
+
+        self.assertTrue('/LIBPATH:"b"' in requires_library_paths)
 
     def test_library_reference(self):
         build_a = setup_build(global_target_file, "a")
