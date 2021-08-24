@@ -5,16 +5,18 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from typing import Dict
 
 import toml
+from ninja_syntax import Writer
+from tabulate import tabulate
+
 from aim_build import gccbuilds
 from aim_build import msvcbuilds
 from aim_build.common import DEMO_ZIP_FILE_NAME
-from aim_build.commonbuilds import find_build
+from aim_build.commonbuilds import find_build, BuildTypes
 from aim_build.schema import target_schema
 from aim_build.version import __version__
-from ninja_syntax import Writer
-from tabulate import tabulate
 
 
 def run_ninja(working_dir, build_name):
@@ -64,16 +66,18 @@ def entry():
         action="store_true",
     )
 
-    build_parser.add_argument(
-        "--profile-build",
-        help="forwards -ftime-trace to the compiler for emitting build profile information."
-        " View using chome://tracing.",
-        action="store_true",
-    )
+    # TODO: Get this working again.
+    # build_parser.add_argument(
+    #     "--profile-build",
+    #     help="forwards -ftime-trace to the compiler for emitting build profile information."
+    #          " View using chome://tracing.",
+    #     action="store_true",
+    # )
 
-    build_parser.add_argument(
-        "--args", help="additional arguments forwarded to the compiler", nargs="*"
-    )
+    # TODO: Get this working again.
+    # build_parser.add_argument(
+    #     "--args", help="additional arguments forwarded to the compiler", nargs="*"
+    # )
 
     build_parser = sub_parser.add_parser(
         "clobber", help="deletes all build artifacts for the specified target"
@@ -96,6 +100,8 @@ def entry():
         with zipfile.ZipFile(str(zip_path)) as zip_file:
             run_init(zip_file, relative_dir)
     elif mode == "build":
+        args.args = None
+        args.profile_build = None
         forwarding_args = [] if args.args is None else args.args
         if args.profile_build and "-ftime-trace" not in forwarding_args:
             forwarding_args.append("-ftime-trace")
@@ -176,29 +182,27 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
             builder(build_info, parsed_toml, project_writer, args)
 
 
-def make_build_dir():
-    # TODO
-    pass
+def make_build_path(target_path: Path):
+    target_path = Path(target_path)
+    if target_path.is_absolute():
+        build_dir = target_path
+    else:
+        build_dir = Path().cwd() / target_path
+
+    return build_dir
 
 
-def make_project_dir():
-    # TODO
-    pass
+def make_project_path(parsed_toml: Dict, build_dir: Path):
+    root_dir = parsed_toml["projectRoot"]
+    project_dir = build_dir / root_dir
+    assert project_dir.exists(), f"{str(project_dir)} does not exist."
+    return project_dir
 
 
 def run_build(build_name, target_path, skip_ninja_regen, args):
     print("Running build...")
-    # build_dir = Path().cwd()
-    build_dir = Path()
 
-    # TODO: replace with make_build_dir
-    if target_path:
-        target_path = Path(target_path)
-        if target_path.is_absolute():
-            build_dir = target_path
-        else:
-            build_dir = build_dir / Path(target_path)
-
+    build_dir = make_build_path(target_path)
     toml_path = build_dir / "target.toml"
 
     completed_path = (Path().cwd() / toml_path).resolve()
@@ -206,13 +210,10 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
 
     with toml_path.open("r") as toml_file:
         parsed_toml = toml.loads(toml_file.read())
-
-        # TODO: replace with make_project_dir
         builds = parsed_toml["builds"]
         the_build = find_build(build_name, builds)
-        root_dir = parsed_toml["projectRoot"]
-        project_dir = build_dir / root_dir
-        assert project_dir.exists(), f"{str(project_dir)} does not exist."
+
+        project_dir = make_project_path(parsed_toml, build_dir)
 
         try:
             target_schema(parsed_toml, project_dir)
@@ -269,7 +270,6 @@ def run_list(target_path):
         header = ["Item", "Name", "Build Rule", "Output Name"]
         table = []
 
-        from aim_build.commonbuilds import BuildTypes
         for number, build in enumerate(builds):
             build_type = BuildTypes[build["buildRule"]]
             if build_type in [BuildTypes.libraryReference, BuildTypes.headerOnly]:
