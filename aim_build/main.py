@@ -301,7 +301,7 @@ def run_list(target_path):
                     dynamic_convection_func,
                 )
             else:
-                output_name = output_name
+                output_name = build["outputName"]
 
             row = [number, build["name"], build["buildRule"], output_name]
             table.append(row)
