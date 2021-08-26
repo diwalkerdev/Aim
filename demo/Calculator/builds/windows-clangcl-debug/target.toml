@@ -10,24 +10,24 @@ flags = [
 
 [[builds]]
 name = "calculatorstatic"
-buildRule = "staticLib"
+buildRule = "staticLibrary"
 outputName = "CalculatorStatic"
-srcDirs = ["lib"]
+sourceFiles = ["lib/*.cpp"]
 includePaths = ["include"]
 
 [[builds]]
 name = "calculatordynamic"
-buildRule = "dynamicLib"
+buildRule = "dynamicLibrary"
 outputName = "CalculatorShared"
-srcDirs = ["lib"]
+sourceFiles = ["lib/*.cpp"]
 includePaths = ["include"]
 
 [[builds]]
 name = "calculatortests"
-buildRule = "exe"
+buildRule = "executable"
 requires = ["calculatordynamic"]
-outputName = "CalculatorTests"
-srcDirs = ["tests"]
+outputName = "CalculatorTests.exe"
+sourceFiles = ["tests/*.cpp"]
 includePaths = ["include"]
 # The libraryPaths and libraries fields can be used to specify additional
 # libraries and paths to the build. This allows for linking against third
@@ -37,8 +37,8 @@ includePaths = ["include"]
 
 [[builds]]
 name = "calculatorapp"
-buildRule = "exe"
+buildRule = "executable"
 requires = ["calculatordynamic"]
-outputName = "CalculatorApp"
-srcDirs = ["src"]
+outputName = "CalculatorApp.exe"
+sourceFiles = ["src/*.cpp"]
 includePaths = ["include"]

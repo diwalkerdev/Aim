@@ -1,9 +1,9 @@
 import itertools
 import os
-from pathlib import Path, PurePath
-from typing import List, Union
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from typing import List, Union, Iterable
 
-from aim_build.typedefs import PathList, StringList, T
+from aim_build.typedefs import PathList, PurePathList, StringList, T
 
 
 def src_to_obj(files) -> StringList:
@@ -39,8 +39,13 @@ def postfix(the_postfix, paths) -> StringList:
     return [str(x) + the_postfix for x in paths]
 
 
-def add_quotes(paths: Union[PathList, StringList]):
-    return [f'"{str(x)}"' for x in paths]
+def wrap_quotes(paths: Union[PurePathList, StringList, str]) -> StringList:
+    if isinstance(paths, str):
+        str_path = str(paths)
+        return [f'"{str_path}"']
+    else:
+        str_paths = to_str(paths)
+        return [f'"{x}"' for x in str_paths]
 
 
 def suffix(the_suffix, paths) -> StringList:
@@ -61,12 +66,35 @@ def escape_path(word):
     return word.replace("$ ", "$$ ").replace(" ", "$ ").replace(":", "$:")
 
 
-def relpath(src_path: Path, dst_path: Path):
-    return Path(os.path.relpath(str(src_path), str(dst_path)))
+def relpath(src_path: PurePosixPath, dst_path: PurePosixPath):
+    result = os.path.relpath(str(src_path), str(dst_path))
+    result = result.replace("\\", "/")
+    return PurePosixPath(result)
 
 
-def relpaths(src_paths: List[PurePath], dst_path: PurePath) -> List[PurePath]:
-    return [
-        type(dst_path)(os.path.relpath(str(src_path), str(dst_path)))
-        for src_path in src_paths
-    ]
+def relpaths(src_paths: Union[PurePosixPath, List[PurePosixPath]], dst_path: PurePosixPath) -> List[PurePosixPath]:
+    if isinstance(src_paths, Iterable):
+        return [relpath(src_path, dst_path) for src_path in src_paths]
+    else:
+        return [relpath(src_paths, dst_path)]
+
+
+def to_path_root(build_path: PurePath) -> PurePath:
+    rel_path = PurePosixPath()
+    for i in range(len(build_path.parents)):
+        rel_path = rel_path / ".."
+    return rel_path
+
+
+def to_native_path(path: PurePath) -> Path:
+    # Have to be careful when converting from posix to windows paths.
+    # If you have a posix path object pointing to C:/some/path/somewhere and simply do:
+    #   Path(posix_path)
+    # Then the result will be C:some\path\somewhere - the \ after the C: drive is missing.
+    # However the conversion works, if you convert to a string before constructing the native path object.
+    return Path(str(path))
+
+
+def to_pure_posix_path(path: PurePath) -> PurePosixPath:
+    # This function handles some common errors when converting from Windows paths back to PurePosixPaths.
+    return PurePosixPath(str(path).replace("\\", "/"))

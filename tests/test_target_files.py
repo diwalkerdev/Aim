@@ -1,6 +1,20 @@
 from unittest import TestCase
-from aim_build.gccbuilds import *
-from aim_build.schema import target_schema
+from aim_build.utils import to_native_path
+import aim_build.commonbuilds as commonbuilds
+from aim_build.typedefs import PurePathList
+from aim_build.gccbuilds import (
+    get_includes_for_build,
+    get_src_for_build,
+    ToObjectFiles,
+    prepend_paths,
+    get_rpath,
+    get_external_libraries_information,
+    PrefixLibrary,
+    PrefixLibraryPath,
+    linux_add_static_library_naming_convention,
+    linux_add_dynamic_library_naming_convention
+)
+from pathlib import Path, PurePosixPath
 import tempfile
 
 global_target_file = {
@@ -14,10 +28,10 @@ global_target_file = {
     "builds": [
         {
             "name": "a",
-            "buildRule": "exe",
+            "buildRule": "executable",
             "requires": ["b", "c", "r", "i"],
             "includePaths": ["a/include"],
-            "srcDirs": ["a/src"],
+            "sourceFiles": ["a/src/*.cpp"],
             "outputName": "a",
             "libraryPaths": ["/usr/lib/SDL2"],
             "libraries": ["SDL2", "SDL2_image"]
@@ -28,8 +42,8 @@ global_target_file = {
             "flags": ["-std=c99"],
             "defines": ["EnableOtherFeature"],
             "name": "b",
-            "buildRule": "staticLib",
-            "srcDirs": ["b/src/file_0.c"],
+            "buildRule": "staticLibrary",
+            "sourceFiles": ["b/src/file_0.c"],
             "includePaths": ["b/include"],
             "systemIncludePaths": ["/usr/include"],
             "localIncludePaths": ["b/local/include"],
@@ -37,9 +51,9 @@ global_target_file = {
         },
         {
             "name": "c",
-            "buildRule": "dynamicLib",
+            "buildRule": "dynamicLibrary",
             "includePaths": ["c/include"],
-            "srcDirs": ["c/src"],
+            "sourceFiles": ["c/src"],
             "outputName": "c"
         },
         {
@@ -60,15 +74,17 @@ global_target_file = {
 def setup_build(target_file, build_name, root=None):
     # Note(DW): this can be used to validate the target file.
     #
+    # from aim_build.schema import target_schema
     # target_schema(toml, project_path)
 
     build = commonbuilds.find_build(build_name, target_file["builds"])
 
     # Note(DW): build_dir is the path provided to the target file.
     #
-    build_dir = Path("builds") / "os"
+    build_dir = to_native_path(PurePosixPath("builds") / "os")
     if root:
-        build_dir = Path(root) / build_dir
+        root = root.replace("\\", "/")
+        build_dir = to_native_path(root) / build_dir
 
     build["build_dir"] = build_dir
 
@@ -118,7 +134,7 @@ def make_tmp_directory_structure():
     return tmp_dir
 
 
-def find_str(string: str, paths: List[PurePath]):
+def find_str(string: str, paths: PurePathList):
     found = False
     for p in paths:
         if string == str(p):
@@ -137,18 +153,18 @@ class TestTargetFiles(TestCase):
         result = get_includes_for_build(build, global_target_file)
 
         self.assertEqual(len(result), 6)
-        self.assertTrue("-I../../a/include" in result)
-        self.assertTrue("-I../../b/include" in result)
-        self.assertTrue("-I../../c/include" in result)
-        self.assertTrue("-I../../i/include" in result)
-        self.assertTrue("-isystem/usr/include" in result)
-        self.assertTrue("-iquote../../b/local/include" in result)
+        self.assertTrue('-I"../../a/include"' in result)
+        self.assertTrue('-I"../../b/include"' in result)
+        self.assertTrue('-I"../../c/include"' in result)
+        self.assertTrue('-I"../../i/include"' in result)
+        self.assertTrue('-isystem"/usr/include"' in result)
+        self.assertTrue('-iquote"../../b/local/include"' in result)
 
     def test_toolchain_and_flags(self):
         # Note, get_toolchain_and_flags doesn't automatically add the prefix as this is build dependent.
 
         build = setup_build(global_target_file, "a")
-        cxx, ar, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, global_target_file)
+        cxx, ar, cxx_flags, defines, _, __ = commonbuilds.get_toolchain_and_flags(build, global_target_file)
 
         self.assertEqual(cxx, "g++")
         self.assertEqual(ar, "ar")
@@ -159,7 +175,7 @@ class TestTargetFiles(TestCase):
         # Note, get_toolchain_and_flags doesn't automatically add the prefix as this is build dependent.
 
         build = setup_build(global_target_file, "b")
-        cxx, ar, cxx_flags, defines = commonbuilds.get_toolchain_and_flags(build, global_target_file)
+        cxx, ar, cxx_flags, defines, _, __ = commonbuilds.get_toolchain_and_flags(build, global_target_file)
 
         self.assertEqual(cxx, "gcc")
         self.assertEqual(ar, "gcc-ar")
@@ -169,7 +185,7 @@ class TestTargetFiles(TestCase):
     def test_get_src_files(self):
         # Notes:
         #   + src files are relative to build directory.
-        #   + srcDirs accepts directories or specific src files.
+        #   + sourceFiles accepts directories or specific src files.
         tmp_dir = make_tmp_directory_structure()
         with tmp_dir:
             build_a = setup_build(global_target_file, "a", tmp_dir.name)
@@ -223,7 +239,7 @@ class TestTargetFiles(TestCase):
         self.assertTrue("-lSDL2_image" in external_libraries_names)
 
         self.assertEqual(len(external_libraries_paths), 1)
-        self.assertTrue("-L/usr/lib/SDL2" in external_libraries_paths)
+        self.assertTrue('-L"/usr/lib/SDL2"' in external_libraries_paths)
 
     def test_required_library_information(self):
         build_a = setup_build(global_target_file, "a")
@@ -233,11 +249,11 @@ class TestTargetFiles(TestCase):
 
         self.assertEqual(lib_info[0].name, "b")
         self.assertEqual(lib_info[0].path, "b")
-        self.assertEqual(lib_info[0].type, "staticLib")
+        self.assertEqual(lib_info[0].type, "staticLibrary")
 
         self.assertEqual(lib_info[1].name, "c")
         self.assertEqual(lib_info[1].path, "c")
-        self.assertEqual(lib_info[1].type, "dynamicLib")
+        self.assertEqual(lib_info[1].type, "dynamicLibrary")
 
         requires_libraries = PrefixLibrary([info.name for info in lib_info])
         requires_library_paths = PrefixLibraryPath([info.path for info in lib_info])

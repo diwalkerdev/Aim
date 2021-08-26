@@ -1,3 +1,6 @@
+AimTestProject
+*.exp
+
 # Created by https://www.toptal.com/developers/gitignore/api/python,c++,ninja
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,c++,ninja
 

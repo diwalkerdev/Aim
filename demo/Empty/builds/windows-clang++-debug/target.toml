@@ -10,17 +10,17 @@ flags = [
 
 [[builds]]                              
     name = "libraryname"
-    buildRule = "staticLib" # or dynamicLib
+    buildRule = "staticLibrary" # or dynamicLib
     outputName = "LibraryName"
-    srcDirs = ["lib"]
+    sourceFiles = ["lib/*.cpp"]
     includePaths = ["include"]
 
 [[builds]]
     name = "tests"
-    buildRule = "exe"
+    buildRule = "executable"
     requires = ["libraryname"]
     outputName = "Tests"
-    srcDirs = ["tests"]
+    sourceFiles = ["tests/*.cpp"]
     includePaths = ["include"]
     # The libraryPaths and libraries fields can be used to specify additional
     # libraries and paths to the build. This allows for linking against third 
@@ -30,8 +30,8 @@ flags = [
 
 [[builds]]
     name = "application"
-    buildRule = "exe"
+    buildRule = "executable"
     requires = ["libraryname"]
     outputName = "Applicatoin"
-    srcDirs = ["src"]
+    sourceFiles = ["src/*.cpp"]
     includePaths = ["include"]

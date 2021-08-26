@@ -5,18 +5,18 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from typing import Dict
 
 import toml
-from aim_build import gccbuildrules
-from aim_build import gccbuilds
-from aim_build import msvcbuildrules
-from aim_build import msvcbuilds
-from aim_build.common import DEMO_ZIP_FILE_NAME
-from aim_build.commonbuilds import find_build
-from aim_build.schema import target_schema
-from aim_build.version import __version__
 from ninja_syntax import Writer
 from tabulate import tabulate
+
+from aim_build import gccbuilds
+from aim_build import msvcbuilds
+from aim_build.common import DEMO_ZIP_FILE_NAME
+from aim_build.commonbuilds import find_build, BuildTypes
+from aim_build.schema import target_schema
+from aim_build.version import __version__
 
 
 def run_ninja(working_dir, build_name):
@@ -66,16 +66,18 @@ def entry():
         action="store_true",
     )
 
-    build_parser.add_argument(
-        "--profile-build",
-        help="forwards -ftime-trace to the compiler for emitting build profile information."
-        " View using chome://tracing.",
-        action="store_true",
-    )
+    # TODO: Get this working again.
+    # build_parser.add_argument(
+    #     "--profile-build",
+    #     help="forwards -ftime-trace to the compiler for emitting build profile information."
+    #          " View using chome://tracing.",
+    #     action="store_true",
+    # )
 
-    build_parser.add_argument(
-        "--args", help="additional arguments forwarded to the compiler", nargs="*"
-    )
+    # TODO: Get this working again.
+    # build_parser.add_argument(
+    #     "--args", help="additional arguments forwarded to the compiler", nargs="*"
+    # )
 
     build_parser = sub_parser.add_parser(
         "clobber", help="deletes all build artifacts for the specified target"
@@ -98,6 +100,8 @@ def entry():
         with zipfile.ZipFile(str(zip_path)) as zip_file:
             run_init(zip_file, relative_dir)
     elif mode == "build":
+        args.args = None
+        args.profile_build = None
         forwarding_args = [] if args.args is None else args.args
         if args.profile_build and "-ftime-trace" not in forwarding_args:
             forwarding_args.append("-ftime-trace")
@@ -119,24 +123,25 @@ def run_init(demo_zip: zipfile.ZipFile, subdir_name):
         print(f"\t{str(a_dir)}")
         a_dir.mkdir(exist_ok=True)
 
-    if demo_zip:
-        print("Initialising from demo project...")
-        for file_name in demo_zip.namelist():
-            file_name = Path(file_name)
-            if not str(file_name).startswith(subdir_name):
+    assert demo_zip, "Zip file error"
+    print("Initialising from demo project...")
+
+    files = [filename for filename in demo_zip.namelist() if filename.startswith(subdir_name)]
+    assert len(files) > 0, f"Failed to find files for sub dir {subdir_name}"
+
+    for file_name in files:
+        with demo_zip.open(file_name) as the_file:
+            file_path = Path(file_name)
+            relative_path = file_path.relative_to(subdir_name)
+            sys.stdout.write(f"\tCreating {str(relative_path)} ...")
+            if relative_path.exists():
+                print("warning, file already exists.")
                 continue
+            print("okay")
 
-            with demo_zip.open(str(file_name)) as the_file:
-                relative_path = file_name.relative_to(subdir_name)
-                sys.stdout.write(f"\tCreating {str(relative_path)} ...")
-                if relative_path.exists():
-                    print("warning, file already exists.")
-                    continue
-                print("okay")
-
-                relative_path.parent.mkdir(parents=True, exist_ok=True)
-                relative_path.touch()
-                relative_path.write_bytes(the_file.read())
+            relative_path.parent.mkdir(parents=True, exist_ok=True)
+            relative_path.touch()
+            relative_path.write_bytes(the_file.read())
 
 
 def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
@@ -149,18 +154,18 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
         project_writer = Writer(project_fd)
         # project_writer.include(str(build_dir / "rules.ninja"))
         if frontend == "msvc":
-            msvcbuildrules.add_compile(project_writer)
-            msvcbuildrules.add_ar(project_writer)
-            msvcbuildrules.add_exe(project_writer)
-            msvcbuildrules.add_shared(project_writer)
+            msvcbuilds.add_compile(project_writer)
+            msvcbuilds.add_ar(project_writer)
+            msvcbuilds.add_exe(project_writer)
+            msvcbuilds.add_shared(project_writer)
         elif frontend == "osx":
             # builder = osxbuilds.OsxBuilds()
             assert False, "OSX frontend is currently not supported."
         else:
-            gccbuildrules.add_compile(project_writer)
-            gccbuildrules.add_ar(project_writer)
-            gccbuildrules.add_exe(project_writer)
-            gccbuildrules.add_shared(project_writer)
+            gccbuilds.add_compile(project_writer)
+            gccbuilds.add_ar(project_writer)
+            gccbuilds.add_exe(project_writer)
+            gccbuilds.add_shared(project_writer)
 
         for build_info in builds:
             current_build = build_info
@@ -168,50 +173,50 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
             current_build["build_dir"] = build_dir
 
             if frontend == "msvc":
-                builder = msvcbuilds.MSVCBuilds()
+                builder = msvcbuilds.run_build
             elif frontend == "osx":
                 # builder = osxbuilds.OsxBuilds()
                 assert False, "OSX frontend is currently not supported."
+            elif frontend == "gcc":
+                builder = gccbuilds.run_build
             else:
-                builder = gccbuilds.GCCBuilds()
+                assert False, f"Error: Unknown frontend {frontend}"
 
-            builder.build(build_info, parsed_toml, project_writer, args)
-
-
-def make_build_dir():
-    # TODO
-    pass
+            builder(build_info, parsed_toml, project_writer, args)
 
 
-def make_project_dir():
-    # TODO
-    pass
+def make_build_path(target_path: Path):
+    target_path = Path(target_path)
+    if target_path.is_absolute():
+        build_dir = target_path
+    else:
+        build_dir = Path().cwd() / target_path
+
+    return build_dir
+
+
+def make_project_path(parsed_toml: Dict, build_dir: Path):
+    root_dir = parsed_toml["projectRoot"]
+    project_dir = build_dir / root_dir
+    assert project_dir.exists(), f"{str(project_dir)} does not exist."
+    return project_dir
 
 
 def run_build(build_name, target_path, skip_ninja_regen, args):
     print("Running build...")
-    # build_dir = Path().cwd()
-    build_dir = Path()
 
-    # TODO: replace with make_build_dir
-    if target_path:
-        target_path = Path(target_path)
-        if target_path.is_absolute():
-            build_dir = target_path
-        else:
-            build_dir = build_dir / Path(target_path)
-
+    build_dir = make_build_path(target_path)
     toml_path = build_dir / "target.toml"
+
+    completed_path = (Path().cwd() / toml_path).resolve()
+    assert toml_path.exists(), f"Error: Could not find toml file at {str(completed_path)}"
 
     with toml_path.open("r") as toml_file:
         parsed_toml = toml.loads(toml_file.read())
-
-        # TODO: replace with make_project_dir
         builds = parsed_toml["builds"]
         the_build = find_build(build_name, builds)
-        root_dir = parsed_toml["projectRoot"]
-        project_dir = build_dir / root_dir
-        assert project_dir.exists(), f"{str(project_dir)} does not exist."
+
+        project_dir = make_project_path(parsed_toml, build_dir)
 
         try:
             target_schema(parsed_toml, project_dir)
@@ -227,6 +232,22 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
                 subprocess.run(command, stdout=cc_json, check=True)
 
         run_ninja(build_dir, the_build["name"])
+
+
+def add_naming_convention(
+        output_name: str,
+        build_type: BuildTypes,
+        static_convention_func,
+        dynamic_convention_func,
+):
+    if build_type == BuildTypes.staticLibrary:
+        new_name = static_convention_func(output_name)
+    elif build_type == BuildTypes.dynamicLibrary:
+        new_name = dynamic_convention_func(output_name)
+    else:
+        assert False, f"Error Invalid build type: {build_type}"
+
+    return new_name
 
 
 def run_list(target_path):
@@ -255,32 +276,35 @@ def run_list(target_path):
             dynamic_convection_func = (
                 msvcbuilds.windows_add_dynamic_library_naming_convention
             )
-            exe_convention_func = msvcbuilds.windows_add_exe_naming_convention
         elif frontend == "osx":
             assert False, "OSX frontend is currently not supported."
-        else:
+        elif frontend == "gcc":
             static_convention_func = (
                 gccbuilds.linux_add_static_library_naming_convention
             )
             dynamic_convection_func = (
                 gccbuilds.linux_add_dynamic_library_naming_convention
             )
-            exe_convention_func = gccbuilds.linux_add_exe_naming_convention
+        else:
+            assert False, f"Error: Unknown compiler frontend: {frontend}"
 
         header = ["Item", "Name", "Build Rule", "Output Name"]
         table = []
 
         for number, build in enumerate(builds):
-            if build["buildRule"] in ["libraryReference", "headerOnly"]:
+            build_type = BuildTypes[build["buildRule"]]
+            if build_type in [BuildTypes.libraryReference, BuildTypes.headerOnly]:
                 output_name = "n.a."
-            else:
-                output_name = gccbuilds.add_naming_convention(
+            elif build_type in [BuildTypes.staticLibrary, BuildTypes.dynamicLibrary]:
+                output_name = add_naming_convention(
                     build["outputName"],
-                    build["buildRule"],
+                    build_type,
                     static_convention_func,
                     dynamic_convection_func,
-                    exe_convention_func,
                 )
+            else:
+                output_name = build["outputName"]
+
             row = [number, build["name"], build["buildRule"], output_name]
             table.append(row)
 

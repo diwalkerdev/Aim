@@ -14,10 +14,15 @@ def zip_dir(path: Path, zip_handle: zipfile.ZipFile):
             zip_handle.write(str(the_file))
 
 
-if __name__ == '__main__':
+def main():
     demo_path = Path(DemoDirectory)
     assert demo_path.exists(), f"Failed to find {str(demo_path)} directory."
 
     zip_file = zipfile.ZipFile(DemoZipFileName, "w", zipfile.ZIP_DEFLATED)
     zip_dir(demo_path, zip_file)
     zip_file.close()
+
+
+if __name__ == '__main__':
+    print(f"Running {__file__}")
+    main()
