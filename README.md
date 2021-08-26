@@ -6,7 +6,6 @@
 ![GitHub commits since latest release (by SemVer including pre-releases)](https://img.shields.io/github/commits-since/diwalkerdev/aim/latest/dev?include_prereleases)
 ![Python package](https://github.com/diwalkerdev/Aim/workflows/Python%20package/badge.svg?branch=dev)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/aim-build)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/aim-build)
 ![GitHub contributors](https://img.shields.io/github/contributors/diwalkerdev/aim)
 ![GitHub](https://img.shields.io/github/license/diwalkerdev/aim)
@@ -104,7 +103,7 @@ Next specify your builds. For each build you must specify the `name` and `buildR
     buildRule = "executable"
     requires = ["calculatorDynamic"] # A list of dependencies for this build.
     outputName = "CalculatorApp"     # The output name. Aim will manage any prefixes or suffixes required.
-    sourceFiles = ["src"]                # A list of source directories.
+    sourceFiles = ["src/*.cpp"]      # A list of path globs.
     includePaths = ["include"]       # A list of include paths.
     # The libraryPaths and libraries fields can be used to specify additional
     # libraries and paths to the build. This allows for linking against third
