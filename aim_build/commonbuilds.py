@@ -1,11 +1,10 @@
 from dataclasses import dataclass
-
+from enum import Enum, auto
 from pathlib import PurePosixPath, PurePath
 from typing import Dict, Tuple, Callable, List
 
 from aim_build.typedefs import StringList
 from aim_build.utils import prepend_paths, to_native_path, to_pure_posix_path, relpaths
-from enum import Enum, auto
 
 
 class BuildTypes(Enum):

@@ -2,8 +2,10 @@ import functools
 from pathlib import PurePosixPath, Path
 from typing import Dict, Tuple, Callable, List
 
-from aim_build.commonbuilds import BuildTypes
+from ninja_syntax import Writer
+
 from aim_build import commonbuilds
+from aim_build.commonbuilds import BuildTypes
 from aim_build.typedefs import StringList, PurePathList
 from aim_build.utils import (
     prefix,
@@ -14,7 +16,6 @@ from aim_build.utils import (
     escape_path,
     wrap_quotes
 )
-from ninja_syntax import Writer
 
 PrefixIncludePath = functools.partial(prefix, "-I")
 PrefixSystemIncludePath = functools.partial(prefix, "-isystem")
@@ -344,7 +345,7 @@ def build_static_library(pfw: Writer, build: Dict, parsed_toml: Dict, lib_name_f
 def build_executable(pfw: Writer, build: Dict, parsed_toml: Dict):
     build_name = build["name"]
 
-    _, _, cxxflags, defines, linker, linker_flags = commonbuilds.get_toolchain_and_flags(
+    _, __, ___, defines, linker, linker_flags = commonbuilds.get_toolchain_and_flags(
         build, parsed_toml
     )
     defines = PrefixHashDefine(defines)

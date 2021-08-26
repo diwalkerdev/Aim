@@ -2,9 +2,11 @@ import pprint
 import sys
 from pathlib import Path
 from typing import Union, List
-from aim_build.utils import to_native_path
 
 import cerberus
+
+from aim_build.commonbuilds import BuildTypes
+from aim_build.utils import to_native_path
 
 
 class UniqueNameChecker:
@@ -89,7 +91,7 @@ class SrcPathsChecker:
             # We don't allow recursive globs. <path>/**/*.<extension>
             if path.stem == "**":
                 error(field, f'Recursive globs are not supported: "{str(path)}"')
-                break
+                return
 
             elif path.stem == "*":
                 parent = path.parent
@@ -97,7 +99,7 @@ class SrcPathsChecker:
                     error(field, f'The parent glob directory does not exist: "{str(parent)}"')
                     break
 
-                if not len(list(parent.glob(path.name))):
+                if len(list(parent.glob(path.name))) == 0:
                     error(field, f'The glob does not match any files: "{str(path)}"')
                     break
 
@@ -109,11 +111,11 @@ class SrcPathsChecker:
                 error(field, f'Path does not exist: "{str(path)}"')
                 break
 
-from aim_build.commonbuilds import BuildTypes
+
 class AimCustomValidator(cerberus.Validator):
-    # def __init__(self, *args, **kwargs):
-    #     super(AimCustomValidator, self).__init__(args, kwargs)
-    #     self.name_lookup = []
+    def __init__(self, *args, **kwargs):
+        super(AimCustomValidator, self).__init__(*args, **kwargs)
+        self.name_lookup = []
 
     def check_output_is_unique(self, field, value):
         if value in self.name_lookup:
@@ -345,7 +347,7 @@ def target_schema(document, project_dir):
 
                 print(f'Error in build: "{the_build_name}"')
                 assert (
-                    len(value) == 1
+                        len(value) == 1
                 ), "Length is not 1. Not sure if it can ever be more than."
                 pretty.pprint(value[0])
                 print()

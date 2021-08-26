@@ -3,11 +3,12 @@ from pathlib import PureWindowsPath, PurePosixPath
 from typing import Callable
 from typing import Dict, Tuple, List, Union
 
-from aim_build.typedefs import StringList, PathList
-from aim_build.utils import prefix, postfix, src_to_obj, prepend_paths, to_str, to_native_path, wrap_quotes
+from ninja_syntax import Writer
+
 from aim_build import commonbuilds
 from aim_build.commonbuilds import BuildTypes, LibraryInformation
-from ninja_syntax import Writer
+from aim_build.typedefs import StringList, PathList
+from aim_build.utils import prefix, postfix, src_to_obj, prepend_paths, to_str, to_native_path, wrap_quotes
 
 USING_RELATIVE_OUTPUTS = False
 

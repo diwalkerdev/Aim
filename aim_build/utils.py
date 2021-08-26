@@ -1,6 +1,6 @@
 import itertools
 import os
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from pathlib import Path, PurePath, PurePosixPath
 from typing import List, Union, Iterable
 
 from aim_build.typedefs import PathList, PurePathList, StringList, T
@@ -35,7 +35,6 @@ def prefix(the_prefix, paths) -> StringList:
 
 
 def postfix(the_postfix, paths) -> StringList:
-
     return [str(x) + the_postfix for x in paths]
 
 
@@ -43,9 +42,9 @@ def wrap_quotes(paths: Union[PurePathList, StringList, str]) -> StringList:
     if isinstance(paths, str):
         str_path = str(paths)
         return [f'"{str_path}"']
-    else:
-        str_paths = to_str(paths)
-        return [f'"{x}"' for x in str_paths]
+
+    str_paths = to_str(paths)
+    return [f'"{x}"' for x in str_paths]
 
 
 def suffix(the_suffix, paths) -> StringList:
@@ -75,13 +74,13 @@ def relpath(src_path: PurePosixPath, dst_path: PurePosixPath):
 def relpaths(src_paths: Union[PurePosixPath, List[PurePosixPath]], dst_path: PurePosixPath) -> List[PurePosixPath]:
     if isinstance(src_paths, Iterable):
         return [relpath(src_path, dst_path) for src_path in src_paths]
-    else:
-        return [relpath(src_paths, dst_path)]
+
+    return [relpath(src_paths, dst_path)]
 
 
 def to_path_root(build_path: PurePath) -> PurePath:
     rel_path = PurePosixPath()
-    for i in range(len(build_path.parents)):
+    for _ in range(len(build_path.parents)):
         rel_path = rel_path / ".."
     return rel_path
 

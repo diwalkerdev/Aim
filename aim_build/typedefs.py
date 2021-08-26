@@ -1,5 +1,5 @@
-from typing import List, TypeVar
 from pathlib import Path, PurePath
+from typing import List, TypeVar
 
 # Convenient typedefs
 #
