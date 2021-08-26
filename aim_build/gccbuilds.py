@@ -279,7 +279,7 @@ def generate_linker_args(build, parsed_toml):
     return linker_args
 
 
-def run_build(self, build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
+def run_build(build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
     # TODO forward args
     the_build = BuildTypes[build["buildRule"]]
     build_name = build["name"]
@@ -291,16 +291,16 @@ def run_build(self, build: Dict, parsed_toml: Dict, ninja_writer: Writer, args):
     build["buildPath"] = build_path
 
     if the_build == BuildTypes.staticLibrary:
-        self.build_static_library(
+        build_static_library(
             ninja_writer,
             build,
             parsed_toml,
             linux_add_static_library_naming_convention,
         )
     elif the_build == BuildTypes.executable:
-        self.build_executable(ninja_writer, build, parsed_toml)
+        build_executable(ninja_writer, build, parsed_toml)
     elif the_build == BuildTypes.dynamicLibrary:
-        self.build_dynamic_library(ninja_writer, build, parsed_toml)
+        build_dynamic_library(ninja_writer, build, parsed_toml)
     elif the_build == BuildTypes.headerOnly:
         pass
     elif the_build == BuildTypes.libraryReference:

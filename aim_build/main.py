@@ -177,8 +177,10 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
             elif frontend == "osx":
                 # builder = osxbuilds.OsxBuilds()
                 assert False, "OSX frontend is currently not supported."
-            else:
+            elif frontend == "gcc":
                 builder = gccbuilds.run_build
+            else:
+                assert False, f"Error: Unknown frontend {frontend}"
 
             builder(build_info, parsed_toml, project_writer, args)
 
