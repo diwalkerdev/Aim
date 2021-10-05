@@ -30,6 +30,10 @@ def run_ninja(working_dir, build_name):
         for line in iter(process.stderr.readline, b""):
             sys.stderr.write(line.decode("utf-8"))
 
+        ret_code = process.returncode
+
+    return ret_code
+
 
 def entry():
     # print("DEV")
@@ -105,7 +109,9 @@ def entry():
         forwarding_args = [] if args.args is None else args.args
         if args.profile_build and "-ftime-trace" not in forwarding_args:
             forwarding_args.append("-ftime-trace")
-        run_build(args.build, args.target, args.skip_ninja_regen, forwarding_args)
+
+        ret_code = run_build(args.build, args.target, args.skip_ninja_regen, forwarding_args)
+        sys.exit(ret_code)
     elif mode == "list":
         run_list(args.target)
     elif mode == "clobber":
@@ -231,7 +237,7 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
                 command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
                 subprocess.run(command, stdout=cc_json, check=True)
 
-        run_ninja(build_dir, the_build["name"])
+        return run_ninja(build_dir, the_build["name"])
 
 
 def add_naming_convention(

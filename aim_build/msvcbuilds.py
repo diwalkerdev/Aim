@@ -309,7 +309,7 @@ def build_static_library(pfw: Writer,
 def build_executable(pfw: Writer, build: Dict, parsed_toml: Dict):
     build_name = build["name"]
 
-    _, __, ___, defines, linker, linker_args = commonbuilds.get_toolchain_and_flags(
+    _, __, cxx_flags, defines, linker, linker_args = commonbuilds.get_toolchain_and_flags(
         build, parsed_toml
     )
     defines = PrefixHashDefine(defines)
@@ -337,7 +337,7 @@ def build_executable(pfw: Writer, build: Dict, parsed_toml: Dict):
         variables={
             "compiler": linker,
             "includes": includes,
-            "flags": " ".join(linker_args),
+            "flags": cxx_flags,
             "defines": " ".join(defines),
             "exe_name": build_output,
             "linker_args": " ".join(linker_args),
