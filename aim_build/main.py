@@ -5,9 +5,7 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
-from typing import Dict
 
-import toml
 from ninja_syntax import Writer
 from tabulate import tabulate
 
@@ -201,14 +199,64 @@ def make_build_path(target_path: Path):
     return build_dir
 
 
-def make_project_path(parsed_toml: Dict, build_dir: Path):
-    root_dir = parsed_toml["projectRoot"]
+def make_project_path(root_dir: Path, build_dir: Path):
     project_dir = build_dir / root_dir
     assert project_dir.exists(), f"{str(project_dir)} does not exist."
     return project_dir
 
 
+def vdir(obj):
+    return [x for x in dir(obj) if not x.startswith('__')]
+
+
+def load_target_py_file(file_path: Path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("target", str(file_path))
+    target_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(target_module)
+    return target_module
+
+
+def convert_target_module_to_dict(target_module):
+    keys = vdir(target_module)
+    parsed_toml = {k: getattr(target_module, k) for k in keys}
+    return parsed_toml
+
+
 def run_build(build_name, target_path, skip_ninja_regen, args):
+    print("Running build...")
+
+    build_dir = make_build_path(target_path)
+    file_path = build_dir / "target.py"
+
+    completed_path = (Path().cwd() / file_path).resolve()
+    assert file_path.exists(), f"Error: Could not find toml file at {str(completed_path)}"
+
+    target_module = load_target_py_file(file_path)
+    parsed_toml = convert_target_module_to_dict(target_module)
+
+    builds = parsed_toml["builds"]
+    the_build = find_build(build_name, builds)
+
+    project_dir = make_project_path(parsed_toml["projectRoot"], build_dir)
+
+    try:
+        target_schema(parsed_toml, project_dir)
+    except RuntimeError as exception:
+        print(f"Error: {exception.args[0]}")
+        sys.exit(-1)
+
+    if not skip_ninja_regen:
+        print("Generating ninja files...")
+        generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args)
+        with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
+            command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
+            subprocess.run(command, stdout=cc_json, check=True)
+
+    return run_ninja(build_dir, the_build["name"])
+
+
+def run_build_toml(build_name, target_path, skip_ninja_regen, args):
     print("Running build...")
 
     build_dir = make_build_path(target_path)
@@ -217,27 +265,28 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
     completed_path = (Path().cwd() / toml_path).resolve()
     assert toml_path.exists(), f"Error: Could not find toml file at {str(completed_path)}"
 
-    with toml_path.open("r") as toml_file:
-        parsed_toml = toml.loads(toml_file.read())
-        builds = parsed_toml["builds"]
-        the_build = find_build(build_name, builds)
+    target_module = load_target_py_file(toml_path)
+    parsed_toml = convert_target_module_to_dict(target_module)
 
-        project_dir = make_project_path(parsed_toml, build_dir)
+    builds = parsed_toml["builds"]
+    the_build = find_build(build_name, builds)
 
-        try:
-            target_schema(parsed_toml, project_dir)
-        except RuntimeError as exception:
-            print(f"Error: {exception.args[0]}")
-            sys.exit(-1)
+    project_dir = make_project_path(parsed_toml["projectRoot"], build_dir)
 
-        if not skip_ninja_regen:
-            print("Generating ninja files...")
-            generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args)
-            with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
-                command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
-                subprocess.run(command, stdout=cc_json, check=True)
+    try:
+        target_schema(parsed_toml, project_dir)
+    except RuntimeError as exception:
+        print(f"Error: {exception.args[0]}")
+        sys.exit(-1)
 
-        return run_ninja(build_dir, the_build["name"])
+    if not skip_ninja_regen:
+        print("Generating ninja files...")
+        generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args)
+        with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
+            command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
+            subprocess.run(command, stdout=cc_json, check=True)
+
+    return run_ninja(build_dir, the_build["name"])
 
 
 def add_naming_convention(
@@ -268,55 +317,55 @@ def run_list(target_path):
 
     toml_path = build_dir / "target.toml"
 
-    with toml_path.open("r") as toml_file:
-        parsed_toml = toml.loads(toml_file.read())
+    target_module = load_target_py_file(toml_path)
+    parsed_toml = convert_target_module_to_dict(target_module)
 
-        builds = parsed_toml["builds"]
+    builds = parsed_toml["builds"]
 
-        frontend = parsed_toml["compilerFrontend"]
+    frontend = parsed_toml["compilerFrontend"]
 
-        if frontend == "msvc":
-            static_convention_func = (
-                msvcbuilds.windows_add_static_library_naming_convention
-            )
-            dynamic_convection_func = (
-                msvcbuilds.windows_add_dynamic_library_naming_convention
-            )
-        elif frontend == "osx":
-            assert False, "OSX frontend is currently not supported."
-        elif frontend == "gcc":
-            static_convention_func = (
-                gccbuilds.linux_add_static_library_naming_convention
-            )
-            dynamic_convection_func = (
-                gccbuilds.linux_add_dynamic_library_naming_convention
+    if frontend == "msvc":
+        static_convention_func = (
+            msvcbuilds.windows_add_static_library_naming_convention
+        )
+        dynamic_convection_func = (
+            msvcbuilds.windows_add_dynamic_library_naming_convention
+        )
+    elif frontend == "osx":
+        assert False, "OSX frontend is currently not supported."
+    elif frontend == "gcc":
+        static_convention_func = (
+            gccbuilds.linux_add_static_library_naming_convention
+        )
+        dynamic_convection_func = (
+            gccbuilds.linux_add_dynamic_library_naming_convention
+        )
+    else:
+        assert False, f"Error: Unknown compiler frontend: {frontend}"
+
+    header = ["Item", "Name", "Build Rule", "Output Name"]
+    table = []
+
+    for number, build in enumerate(builds):
+        build_type = BuildTypes[build["buildRule"]]
+        if build_type in [BuildTypes.libraryReference, BuildTypes.headerOnly]:
+            output_name = "n.a."
+        elif build_type in [BuildTypes.staticLibrary, BuildTypes.dynamicLibrary]:
+            output_name = add_naming_convention(
+                build["outputName"],
+                build_type,
+                static_convention_func,
+                dynamic_convection_func,
             )
         else:
-            assert False, f"Error: Unknown compiler frontend: {frontend}"
+            output_name = build["outputName"]
 
-        header = ["Item", "Name", "Build Rule", "Output Name"]
-        table = []
+        row = [number, build["name"], build["buildRule"], output_name]
+        table.append(row)
 
-        for number, build in enumerate(builds):
-            build_type = BuildTypes[build["buildRule"]]
-            if build_type in [BuildTypes.libraryReference, BuildTypes.headerOnly]:
-                output_name = "n.a."
-            elif build_type in [BuildTypes.staticLibrary, BuildTypes.dynamicLibrary]:
-                output_name = add_naming_convention(
-                    build["outputName"],
-                    build_type,
-                    static_convention_func,
-                    dynamic_convection_func,
-                )
-            else:
-                output_name = build["outputName"]
-
-            row = [number, build["name"], build["buildRule"], output_name]
-            table.append(row)
-
-        print()
-        print(tabulate(table, header))
-        print()
+    print()
+    print(tabulate(table, header))
+    print()
 
 
 def run_clobber(target_path):
@@ -338,7 +387,7 @@ def run_clobber(target_path):
 
     dir_contents = build_dir.glob("*")
     for item in dir_contents:
-        if item.name != "target.toml":
+        if item.name not in ["target.toml", "target.py"]:
             print(f"Deleting {item.name}")
             if item.is_dir():
                 shutil.rmtree(str(item))
