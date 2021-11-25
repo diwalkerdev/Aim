@@ -17,6 +17,7 @@ PrefixLibraryPath = functools.partial(prefix, "/LIBPATH:")
 PrefixLibrary = functools.partial(prefix, "")
 PrefixHashDefine = functools.partial(prefix, "/D")
 PostFixLib = functools.partial(postfix, ".lib")
+ToObjectFiles = src_to_obj
 
 
 def add_compile(nfw):

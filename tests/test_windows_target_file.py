@@ -1,7 +1,8 @@
+import tempfile
 from pathlib import Path, PurePath
 from unittest import TestCase
+
 from aim_build.msvcbuilds import *
-import tempfile
 
 # TODO check that schema prevents local and system includes when frontend is msvc.
 
