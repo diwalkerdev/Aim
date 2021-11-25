@@ -16,9 +16,7 @@ builds = [
         "name": "calculatorstatic",
         "buildRule": "staticLibrary",
         "outputName": "CalculatorStatic",
-        "sourceFiles": [
-            "lib/*.cpp"
-        ],
+        "sourceFiles": ["lib/*.cpp"],
         "includePaths": [
             "include"
         ]
@@ -27,9 +25,7 @@ builds = [
         "name": "calculatordynamic",
         "buildRule": "dynamicLibrary",
         "outputName": "CalculatorShared",
-        "sourceFiles": [
-            "lib/*.cpp"
-        ],
+        "sourceFiles": ["lib/*.cpp"],
         "includePaths": [
             "include"
         ]
@@ -37,29 +33,17 @@ builds = [
     {
         "name": "calculatortests",
         "buildRule": "executable",
-        "requires": [
-            "calculatorstatic"
-        ],
+        "requires": ["calculatorstatic"],
         "outputName": "CalculatorTests",
-        "sourceFiles": [
-            "tests/*.cpp"
-        ],
-        "includePaths": [
-            "include"
-        ]
+        "sourceFiles": ["tests/*.cpp"],
+        "includePaths": ["include"]
     },
     {
         "name": "calculatorapp",
         "buildRule": "executable",
-        "requires": [
-            "calculatordynamic"
-        ],
+        "requires": ["calculatordynamic"],
         "outputName": "CalculatorApp",
-        "sourceFiles": [
-            "src/*.cpp"
-        ],
-        "includePaths": [
-            "include"
-        ]
+        "sourceFiles": ["src/*.cpp"],
+        "includePaths": ["include"]
     }
 ]

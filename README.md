@@ -17,13 +17,21 @@ A command line tool for building C++ projects.
 ## Introduction
 Aim is an attempt to make building C++ projects from source as simple as possible while encouraging a modular approach to software development.
 
-Aim only requires a `target.toml` file which is used to specify the builds of your project. Each build specifies a
+Aim only requires a `target.py` file which is used to specify the builds of your project. Each build specifies a
 component of your project, like a static library, dynamic library, or an executable.
 
 Aim supports:
  * Windows with `msvc` frontend.
  * Linux with `gcc` frontend.
- * It should also be possible to use the `gcc` frontend on Windows when using GCC-like compilers but this hasn't be tested.
+ * It should also be possible to use the `gcc` frontend on Windows when using GCC-like compilers but this hasn't been
+tested.
+
+## Updates
+ * Aim no longer uses the `toml` for the `target` file format. `target` files are now written in Python. The motivation
+for this change is that it can be useful to access environment variables and to store properties, such as compiler flags,
+as variables. To support this change, there is the `util/convert_toml.py` script. To convert a `toml` file, execute from 
+the aim root directory:`poetry run python util\convert_toml.py <relative/path/to/target.toml>`. The Python file will be
+written to the same directory as the `target.toml` file.
 
 ## Getting Started
 ### Prerequisites
@@ -43,8 +51,8 @@ pip install --user aim-build
 
 There are 3 main commands:
 * `init` - initialises a directory with an empty project structure
-* `list --target=path/to/target_toml_dir` - displays the builds for the target
-* `build --target=path/to/target_toml_dir <build name>` - executes a build
+* `list --target=path/to/target_parent_dir` - displays the builds for the target
+* `build --target=path/to/target_parent_dir <build name>` - executes a build
 
 For more information run:
 ```
@@ -70,7 +78,7 @@ And to build:
 <img src="https://github.com/diwalkerdev/Assets/blob/master/Aim/aim-init-demo.gif?raw=true" width="600px">
 
 ## Target files
-A `target.toml` file describes a project and its build components.
+A `target.py` file describes a project and its build components.
 
 Begin by specifying `projectRoot` which is the path from the target file to your source files. All relative paths 
 will be relative to this directory.
@@ -95,21 +103,46 @@ flags = [
 ```
 
 Next specify your builds. For each build you must specify the `name` and `buildRule`. Valid build rules are 
-`staticLibrary`, `dynamicLibrary`, `executable`, `headerOnly` or `libraryReference`. A build typically looks like:
+`staticLibrary`, `dynamicLibrary`, `executable`, `headerOnly` or `libraryReference`. A `target.py` that consists of a
+dynamic or shared library, an application and a test executable looks like:
 
 ```
-[[builds]]
-    name = "calculatorApp"
-    buildRule = "executable"
-    requires = ["calculatorDynamic"] # A list of dependencies for this build.
-    outputName = "CalculatorApp"     # The output name. Aim will manage any prefixes or suffixes required.
-    sourceFiles = ["src/*.cpp"]      # A list of path globs.
-    includePaths = ["include"]       # A list of include paths.
-    # The libraryPaths and libraries fields can be used to specify additional
-    # libraries and paths to the build. This allows for linking against third
-    # party libraries.
-    #libraryPaths = []
-    #libraries = []
+builds = [
+    {
+        "name": "calculatorstatic",
+        "buildRule": "staticLibrary",
+        "outputName": "CalculatorStatic",
+        "sourceFiles": ["lib/*.cpp"],
+        "includePaths": [
+            "include"
+        ]
+    },
+    {
+        "name": "calculatordynamic",
+        "buildRule": "dynamicLibrary",
+        "outputName": "CalculatorShared",
+        "sourceFiles": ["lib/*.cpp"],
+        "includePaths": [
+            "include"
+        ]
+    },
+    {
+        "name": "calculatortests",
+        "buildRule": "executable",
+        "requires": ["calculatorstatic"],
+        "outputName": "CalculatorTests",
+        "sourceFiles": ["tests/*.cpp"],
+        "includePaths": ["include"]
+    },
+    {
+        "name": "calculatorapp",
+        "buildRule": "executable",
+        "requires": ["calculatordynamic"],
+        "outputName": "CalculatorApp",
+        "sourceFiles": ["src/*.cpp"],
+        "includePaths": ["include"]
+    }
+]
 ```
 
 Other notes:
@@ -124,7 +157,7 @@ Other notes:
 * The fields `compiler`, `flags` and `defines` are normally written at the top of the target file before the builds section. By default, all builds will use these fields i.e. they are global, but they can also be overridden by specifying them again in a build. Note that when these fields are specified specifically for a build, they completely replace the global definition; any `flags` or `defines` that you specify must be written out in full as they will not share any values with the global definition.
 
 ## Supporting Multiple Targets
-Aim treats any build variation as its own unique build target with its own unique `target.toml`. 
+Aim treats any build variation as its own unique build target with its own unique `target.py`. 
 
 A build target is some combination of _things_ that affects the output binary such as:
  * operating system (Windows, OSX, Gnu Linux)
@@ -132,16 +165,16 @@ A build target is some combination of _things_ that affects the output binary su
  * build type (Release, Debug, Sanitized)
  * etc. 
  
-Each build target and corresponding `target.toml` file must have its own directory ideally named using a unique 
-identifier that comprises the 'parts' that make up the build. For example, `builds/linux-clang++-release/target.toml` indicates that the target file describes a project that is a `release` build, uses the `clang++` compiler and is for the `linux` operating system. 
+Each build target and corresponding `target.py` file must have its own directory ideally named using a unique 
+identifier that comprises the 'parts' that make up the build. For example, `builds/linux-clang++-release/target.py` indicates that the target file describes a project that is a `release` build, uses the `clang++` compiler and is for the `linux` operating system. 
 
 As an example, if you were developing an application for both Windows and Linux, you may end up with a build directory structure like the following:
- * `builds/linux-clang++-release/target.toml`
- * `builds/linux-clang++-debug/target.toml`
- * `builds/windows-clangcl-release/target.toml`
- * `builds/windows-clangcl-debug/target.toml`
+ * `builds/linux-clang++-release/target.py`
+ * `builds/linux-clang++-debug/target.py`
+ * `builds/windows-clangcl-release/target.py`
+ * `builds/windows-clangcl-debug/target.py`
 
-Note: each `target.toml` file must be written out in full for each target that you need to support. There is no way for
+Note: each `target.py` file must be written out in full for each target that you need to support. There is no way for
 target files to share information or to depend on another. While this leads to duplication between target files, it 
 makes them very explicit and makes debugging builds much easier.
 
@@ -153,7 +186,7 @@ So you may choose to nest the source of A inside B, perhaps using a git submodul
 The problem comes when your dependency hierarchy becomes more complex. If library C also depends on A, and an application D
 depends on B and C, you'll end up with multiple copies of library A which can become difficult to manage.
 
-You may need to use this approach, as it is useful to be able to build a library in isolation, however you should do so in such 
+You may need to use this approach, as it can be useful to build a library in isolation, however you should do so in such 
 a way where pulling the source for the dependencies is optional.
 
 The approach the author uses is to use a non-project-specific directory that includes all your projects directly below it
@@ -164,11 +197,12 @@ i.e. a "flat" structure. So rather than nesting dependencies you have:
  + - LibA
  + - LibB
  + - LibC
- + - ApplicationD
- + - SomeOtherApp
+ + - Application_1
+ + - Application_2
  + - builds
- + - - linux-clang++-debug
- + - - - target.toml
+ + - - App1
+ + - - - linux-clang++-debug
+ + - - - - target.py
 ```
 
 The flat structure has a single build directory and a single target file for each build target you need to support. This eliminates any 
