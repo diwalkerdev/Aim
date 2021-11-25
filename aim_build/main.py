@@ -148,11 +148,11 @@ def run_init(demo_zip: zipfile.ZipFile, subdir_name):
             relative_path.write_bytes(the_file.read())
 
 
-def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
-    frontend = parsed_toml["compilerFrontend"]
+def generate_flat_ninja_file(target_dict, project_dir, build_dir, args):
+    frontend = target_dict["compilerFrontend"]
     project_ninja = build_dir / "build.ninja"
 
-    builds = parsed_toml["builds"]
+    builds = target_dict["builds"]
 
     with project_ninja.open("w+") as project_fd:
         project_writer = Writer(project_fd)
@@ -186,7 +186,7 @@ def generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args):
             else:
                 assert False, f"Error: Unknown frontend {frontend}"
 
-            builder(build_info, parsed_toml, project_writer, args)
+            builder(build_info, target_dict, project_writer, args)
 
 
 def make_build_path(target_path: Path):
@@ -206,7 +206,27 @@ def make_project_path(root_dir: Path, build_dir: Path):
 
 
 def vdir(obj):
-    return [x for x in dir(obj) if not x.startswith('__')]
+    import inspect
+
+    results = []
+
+    # dir only gets the name of the attribute ...
+    for x in dir(obj):
+        # Remove _ and __ vars, as these aren't apart of our schema and will cause the validator to fail.
+        if x.startswith("_"):
+            continue
+
+        # ... so when we want to check for modules, we need to explicitly access them using getattr.
+        #
+        # Remove modules, because we don't want to force users to do the following:
+        # import os as _os.
+        # Because that would be annoying.
+        at = getattr(obj, x)
+        if inspect.ismodule(at):
+            continue
+
+        results.append(x)
+    return results
 
 
 def load_target_py_file(file_path: Path):
@@ -219,8 +239,8 @@ def load_target_py_file(file_path: Path):
 
 def convert_target_module_to_dict(target_module):
     keys = vdir(target_module)
-    parsed_toml = {k: getattr(target_module, k) for k in keys}
-    return parsed_toml
+    the_dict = {k: getattr(target_module, k) for k in keys}
+    return the_dict
 
 
 def run_build(build_name, target_path, skip_ninja_regen, args):
@@ -230,58 +250,25 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
     file_path = build_dir / "target.py"
 
     completed_path = (Path().cwd() / file_path).resolve()
-    assert file_path.exists(), f"Error: Could not find toml file at {str(completed_path)}"
+    assert file_path.exists(), f"Error: Could not find target.py at {str(completed_path)}"
 
     target_module = load_target_py_file(file_path)
-    parsed_toml = convert_target_module_to_dict(target_module)
+    target_dict = convert_target_module_to_dict(target_module)
 
-    builds = parsed_toml["builds"]
+    builds = target_dict["builds"]
     the_build = find_build(build_name, builds)
 
-    project_dir = make_project_path(parsed_toml["projectRoot"], build_dir)
+    project_dir = make_project_path(target_dict["projectRoot"], build_dir)
 
     try:
-        target_schema(parsed_toml, project_dir)
+        target_schema(target_dict, project_dir)
     except RuntimeError as exception:
         print(f"Error: {exception.args[0]}")
         sys.exit(-1)
 
     if not skip_ninja_regen:
         print("Generating ninja files...")
-        generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args)
-        with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
-            command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
-            subprocess.run(command, stdout=cc_json, check=True)
-
-    return run_ninja(build_dir, the_build["name"])
-
-
-def run_build_toml(build_name, target_path, skip_ninja_regen, args):
-    print("Running build...")
-
-    build_dir = make_build_path(target_path)
-    toml_path = build_dir / "target.toml"
-
-    completed_path = (Path().cwd() / toml_path).resolve()
-    assert toml_path.exists(), f"Error: Could not find toml file at {str(completed_path)}"
-
-    target_module = load_target_py_file(toml_path)
-    parsed_toml = convert_target_module_to_dict(target_module)
-
-    builds = parsed_toml["builds"]
-    the_build = find_build(build_name, builds)
-
-    project_dir = make_project_path(parsed_toml["projectRoot"], build_dir)
-
-    try:
-        target_schema(parsed_toml, project_dir)
-    except RuntimeError as exception:
-        print(f"Error: {exception.args[0]}")
-        sys.exit(-1)
-
-    if not skip_ninja_regen:
-        print("Generating ninja files...")
-        generate_flat_ninja_file(parsed_toml, project_dir, build_dir, args)
+        generate_flat_ninja_file(target_dict, project_dir, build_dir, args)
         with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
             command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
             subprocess.run(command, stdout=cc_json, check=True)
@@ -315,14 +302,15 @@ def run_list(target_path):
         else:
             build_dir = build_dir / Path(target_path)
 
-    toml_path = build_dir / "target.toml"
+    target_file = build_dir / "target.py"
+    assert target_file.exists(), f"Error: {str(target_file)} does not exists."
 
-    target_module = load_target_py_file(toml_path)
-    parsed_toml = convert_target_module_to_dict(target_module)
+    target_module = load_target_py_file(target_file)
+    target_dict = convert_target_module_to_dict(target_module)
 
-    builds = parsed_toml["builds"]
+    builds = target_dict["builds"]
 
-    frontend = parsed_toml["compilerFrontend"]
+    frontend = target_dict["compilerFrontend"]
 
     if frontend == "msvc":
         static_convention_func = (
@@ -378,8 +366,8 @@ def run_clobber(target_path):
         else:
             build_dir = build_dir / Path(target_path)
 
-    assert (build_dir / "target.toml").exists(), (
-        f"Failed to find target.toml file in {str(build_dir)}.\n"
+    assert (build_dir / "target.py").exists(), (
+        f"Failed to find target.py file in {str(build_dir)}.\n"
         "You might be trying to delete a directory that you want to keep."
     )
 

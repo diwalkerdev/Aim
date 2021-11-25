@@ -1,7 +1,7 @@
 from pathlib import Path
 import zipfile
 
-DemoFileExtensionsToZip = [".cpp", ".c", ".h", ".hpp", ".toml"]
+DemoFileExtensionsToZip = [".cpp", ".c", ".h", ".hpp", ".py"]
 
 # TODO would be nice if there was a way to shared these variables with common.py and pyproject.toml
 DemoDirectory = "./demo"

@@ -1,0 +1,135 @@
+projectRoot = "../.."
+
+compilerFrontend = "msvc"
+compiler = "clang-cl"
+archiver = "llvm-ar"
+
+flags = [
+    "/std=c++17",
+    "/Od",
+    "/Zi",
+    "/DEBUG",
+    "/Wall",
+    "-fsanitize=address",
+    "-fno-omit-frame-pointer", # get nicer stack traces from address sanitizer.
+    "-fsanitize=undefined",
+]
+
+defines = ["DEBUG_BUILD", "EXPORT_DLL_PUBLIC"]
+
+
+[[builds]]
+    name = "sdl2"
+    buildRule = "libraryReference"
+    includePaths = ["C:/SDL2/include"]
+    libraries = ["SDL2_image", "SDL2_ttf", "SDL2"]
+
+[[builds]]
+    name = "base"
+    buildRule = "dynamicLibrary"
+    outputName = "base"
+    sourceFiles = ["Base\\lib\\Base\\*.cpp"]
+    includePaths = ["Base\\lib"]
+
+[[builds]]
+    name = "testBase"
+    buildRule = "executable"
+    requires = ["base", "sdl2"]
+    outputName = "test_base.exe"
+    sourceFiles = ["Base/tests/*.cpp"]
+
+[[builds]]
+    name = "GeometricAlgebra"
+    buildRule = "staticLibrary"
+    outputName = "geometricalgebra"
+    sourceFiles = ["GeometricAlgebra/lib/GeometricAlgebra/*.cpp"]
+    includePaths = ["GeometricAlgebra/lib"]
+
+[[builds]]
+    name = "TestGeometricAlgebra"
+    buildRule = "executable"
+    requires = ["GeometricAlgebra"]
+    outputName = "test_geometric.exe"
+    sourceFiles = ["GeometricAlgebra/test/*.cpp"]
+
+[[builds]]
+    name = "Particles"
+    buildRule = "dynamicLibrary"
+    outputName = "paricles"
+    sourceFiles = ["Particles/lib/Particles/*.cpp"]
+    includePaths = ["Particles/lib"]
+
+[[builds]]
+    name = "TestParticles"
+    buildRule = "executable"
+    requires = ["Particles"]
+    outputName = "test_particles.exe"
+    sourceFiles = ["Particles/test/*.cpp"]
+
+[[builds]]
+    name = "ExampleParticles"
+    buildRule = "executable"
+    requires = ["Particles", "base", "easing", "layout", "sdl2"]
+    outputName = "example_particles.exe"
+    sourceFiles = ["Particles/example/particle_demo.cpp"]
+
+[[builds]]
+    name = "easing"
+    requires = ["base"]
+    buildRule = "dynamicLibrary"
+    outputName = "easing"
+    sourceFiles = ["Easing/lib/Easing/*.cpp"]
+    includePaths = ["Easing/lib"]
+   
+[[builds]]
+    name = "testEasing"
+    requires = ["base", "easing", "sdl2"]
+    buildRule = "executable"
+    outputName = "test_easing.exe"
+    sourceFiles = ["Easing/tests/*.cpp"]
+	
+[[builds]]
+    name = "layout"
+    buildRule = "dynamicLibrary"
+    requires = ["base", "easing", "sdl2"]
+    outputName = "layout"
+    sourceFiles = [
+        "Layouts/lib/Layout/*.cpp",
+        "Layouts/lib/Layout/Layouts/*.cpp",
+        "Layouts/lib/Layout/Widgets/*.cpp",
+    ]
+    includePaths = [
+        "Layouts/lib",
+    ]
+
+[[builds]]
+    name = "testLayout"
+    buildRule = "executable"
+    requires = ["base", "easing", "layout"]
+    outputName = "test_layout.exe"
+    sourceFiles = ["Layouts/tests/*.cpp"]
+	
+
+[[builds]]
+    name = "exampleBasicWindow"
+    buildRule = "executable"
+    requires = ["base", "easing", "layout", "sdl2"]
+    outputName = "layouts_basicwindow.exe"
+    sourceFiles = ["Layouts/examples/example_basicwindow.cpp"]
+
+
+[[builds]]
+    name = "exampleGameHud"
+    buildRule = "executable"
+    requires = ["base", "easing", "layout", "sdl2"]
+    outputName = "game_hud.exe"
+    sourceFiles = ["Layouts/examples/example_gamehud.cpp"]
+    includePaths = ["Layouts/examples"]
+
+
+[[builds]]
+    name = "exampleSimple"
+    buildRule = "executable"
+    requires = ["base", "easing", "layout", "sdl2"]
+    outputName = "simple.exe"
+    sourceFiles = ["Layouts/examples/example_simple.cpp"]
