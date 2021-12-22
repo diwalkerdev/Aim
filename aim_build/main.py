@@ -40,27 +40,37 @@ def entry():
     # TODO: Get version automatically from the pyproject.toml file.
     parser = argparse.ArgumentParser(prog="aim", description=f"Version {__version__}")
 
-    parser.add_argument("-v", "--version", action="version", version=__version__)
     sub_parser = parser.add_subparsers(dest="command", help="Commands")
 
-    build_parser = sub_parser.add_parser(
-        "list", help="displays the builds for the target"
-    )
-    build_parser.add_argument(
-        "--target", type=str, required=True, help="path to target file directory"
-    )
+    # Version command
+    # -------------
+    # sub_parser.add_parser(name="version", help="Displays the version number")
 
-    init_parser = sub_parser.add_parser("init", help="creates a project structure")
-    init_parser.add_argument(
-        "--demo-files", help="create additional demo files", action="store_true"
-    )
+    # Init command
+    # -------------
+    init_parser = sub_parser.add_parser(name="init", help="creates a project structure")
 
-    build_parser = sub_parser.add_parser("build", help="executes a build")
-    build_parser.add_argument("build", type=str, help="the build name")
+    init_parser.add_argument("--demo-files",
+                             help="create additional demo files",
+                             action="store_true")
 
-    build_parser.add_argument(
-        "--target", type=str, required=True, help="path to target file directory"
-    )
+    # Target command
+    # --------------
+    target_parser = sub_parser.add_parser(name="target",
+                                          help="[-h] initiate target commands {build, list, clobber}")
+
+    target_parser.add_argument("path",
+                               type=str,
+                               help="path to directory containing target.py")
+
+    target_sub = target_parser.add_subparsers(dest="target")
+
+    build_parser = target_sub.add_parser(name="build",
+                                         help="[-h] executes a build")
+
+    build_parser.add_argument("build",
+                              type=str,
+                              help="the build name")
 
     build_parser.add_argument(
         "--skip-ninja-regen",
@@ -81,14 +91,15 @@ def entry():
     #     "--args", help="additional arguments forwarded to the compiler", nargs="*"
     # )
 
-    build_parser = sub_parser.add_parser(
-        "clobber", help="deletes all build artifacts for the specified target"
-    )
-    build_parser.add_argument(
-        "--target", type=str, required=True, help="path to target file directory"
-    )
+    target_sub.add_parser(name="list",
+                          help="display the builds")
+
+    target_sub.add_parser(name="clobber",
+                          help="deletes all build artifacts")
+
     args = parser.parse_args()
     mode = args.command
+    print(f"args: {args}")
     if mode == "init":
         if args.demo_files:
             print("Initialising from demo project...")
@@ -101,19 +112,22 @@ def entry():
         assert zip_path.exists(), f"Failed to find demo zip files: {str(zip_path)}"
         with zipfile.ZipFile(str(zip_path)) as zip_file:
             run_init(zip_file, relative_dir)
-    elif mode == "build":
-        args.args = None
-        args.profile_build = None
-        forwarding_args = [] if args.args is None else args.args
-        if args.profile_build and "-ftime-trace" not in forwarding_args:
-            forwarding_args.append("-ftime-trace")
+    elif mode == "target":
+        target = args.target
+        path = args.path
+        if target == "build":
+            args.args = None
+            args.profile_build = None
+            forwarding_args = [] if args.args is None else args.args
+            if args.profile_build and "-ftime-trace" not in forwarding_args:
+                forwarding_args.append("-ftime-trace")
 
-        ret_code = run_build(args.build, args.target, args.skip_ninja_regen, forwarding_args)
-        sys.exit(ret_code)
-    elif mode == "list":
-        run_list(args.target)
-    elif mode == "clobber":
-        run_clobber(args.target)
+            ret_code = run_build(args.build, path, args.skip_ninja_regen, forwarding_args)
+            sys.exit(ret_code)
+        elif target == "list":
+            run_list(path)
+        elif target == "clobber":
+            run_clobber(path)
     else:
         parser.print_help(sys.stdout)
 

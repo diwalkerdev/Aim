@@ -14,20 +14,21 @@ mkdir %PROJECT_DIR%
 cd %PROJECT_DIR%
 
 call %AIMCMD% --help
-call %AIMCMD% list --help
 call %AIMCMD% init --help
-call %AIMCMD% build --help
-call %AIMCMD% clobber --help
+call %AIMCMD% target --help
+call %AIMCMD% target builds/windows-clangcl-debug list --help
+call %AIMCMD% target builds/windows-clangcl-debug build --help
+call %AIMCMD% target builds/windows-clangcl-debug clobber --help
 call %AIMCMD% init --demo-files
-call %AIMCMD% list --target=builds/windows-clangcl-debug
-call %AIMCMD% build --target=builds/windows-clangcl-debug calculatortests
-call %AIMCMD% build --target=builds/windows-clangcl-debug calculatorapp
+call %AIMCMD% target builds/windows-clangcl-debug list
+call %AIMCMD% target builds/windows-clangcl-debug build calculatortests
+call %AIMCMD% target builds/windows-clangcl-debug build calculatorapp
 
 REM Remember, all outputs get dumped into the same directory on Windows.
 builds\windows-clangcl-debug\CalculatorTests.exe
 builds\windows-clangcl-debug\CalculatorApp.exe
 
-call %AIMCMD% clobber --target=builds/windows-clangcl-debug
+call %AIMCMD% target builds/windows-clangcl-debug clobber
 
 cd ..
 rmdir /s /q %PROJECT_DIR%
