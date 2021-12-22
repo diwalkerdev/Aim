@@ -55,7 +55,7 @@ def add_exe(nfw: Writer):
 
 
 def add_shared(nfw: Writer):
-    command = "$compiler $defines -shared -fvisibility=hidden -fPIC $flags $includes $in -o $out $linker_args"
+    command = "$compiler $defines -shared $visibility -fPIC $flags $includes $in -o $out $linker_args"
     nfw.rule(name="shared", description="Builds a shared library.", command=command)
     nfw.newline()
 
@@ -385,7 +385,13 @@ def build_executable(pfw: Writer, build: Dict, parsed_toml: Dict):
 
 def build_dynamic_library(pfw: Writer, build: Dict, parsed_toml: Dict):
     build_name = build["name"]
-    extra_flags = ["-DEXPORT_DLL_PUBLIC", "-fvisibility=hidden", "-fPIC"]
+
+    vis = build.get("visibility", None)
+    if vis is None:
+        vis = "hidden"
+    vis_flags = f"-fvisibility={vis}"
+
+    extra_flags = ["-DEXPORT_DLL_PUBLIC", "-fPIC", vis_flags]
 
     compiler, _, cxxflags, defines, __, ___ = commonbuilds.get_toolchain_and_flags(
         build, parsed_toml
@@ -406,6 +412,7 @@ def build_dynamic_library(pfw: Writer, build: Dict, parsed_toml: Dict):
 
     library_name = linux_add_dynamic_library_naming_convention(build["outputName"])
     relative_output_name = str(PurePosixPath(build_name) / library_name)
+
     pfw.build(
         rule="shared",
         inputs=to_str(obj_files),

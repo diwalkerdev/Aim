@@ -127,8 +127,16 @@ def get_required_library_information(build: Dict,
         build_name = the_dep["name"]
         if build_name not in build_names:
             build_names.append(build_name)
+
+            # If we are going to dynamically load the library, then we don't want to generate linker flags for it.
+            dynamic_loading = the_dep.get("dynamicLoading", False)
+            if dynamic_loading:
+                continue
+
             lib_info = LibraryInformation(
-                the_dep["outputName"], the_dep["name"], the_dep["buildRule"]
+                the_dep["outputName"],
+                the_dep["name"],
+                the_dep["buildRule"]
             )
             result.append(lib_info)
 

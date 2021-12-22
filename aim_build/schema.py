@@ -182,14 +182,22 @@ def target_schema(document, project_dir):
             "type": "string",
             "allowed": ["msvc", "gcc", "osx"],
         },
-        "flags": {"type": "list", "schema": {"type": "string"}, "empty": False},
+        "flags": {
+            "type": "list",
+            "schema": {"type": "string"},
+            "empty": False
+        },
         "defines": {
             "type": "list",
             "schema": {"type": "string"},
             "empty": False,
             "check_with": defines_checker.check,
         },
-        "projectRoot": {"required": True, "type": "string", "empty": False},
+        "projectRoot": {
+            "required": True,
+            "type": "string",
+            "empty": False
+        },
         "builds": {
             "required": True,
             "type": "list",
@@ -204,18 +212,43 @@ def target_schema(document, project_dir):
                     "buildRule": {
                         "required": True,
                         "type": "string",
-                        # "allowed": ["executable", "staticLibrary", "dynamicLibrary", "headerOnly",
-                        # "libraryReference"],
+
+                        # Validates if exactly one of the provided constraints applies.
                         "oneof": [
                             {
-                                "excludes": "outputName",
+                                # No output, so exclude output name.
+                                # Not a dynamic library so exclude visibility and dynamicLoading
+                                "excludes": ["outputName", "visibility", "dynamicLoading"],
                                 "allowed": ["headerOnly", "libraryReference"],
                             },
                             {
+                                # Generates an output so make outputName required.
+                                # Not a dynamic library so exclude visibility and dynamicLoading.
+                                "excludes": ["visibility", "dynamicLoading"],
                                 "dependencies": ["outputName"],
-                                "allowed": ["executable", "staticLibrary", "dynamicLibrary"],
+                                "allowed": ["executable", "staticLibrary"],
+                            },
+                            {
+                                # Generates an output so make outputName required.
+                                # Allows visibility if frontend is gcc or osx.
+                                "dependencies": ["outputName"],
+                                "allowed": ["dynamicLibrary"],
                             },
                         ],
+                    },
+                    "visibility": {
+                        "required": False,
+                        "type": "string",
+                        "allowed": [
+                            "hidden",
+                            "default"
+                        ],
+                        "dependencies": {"^compilerFrontend": ["gcc", "osx"]},
+                    },
+                    "dynamicLoading": {
+                        "required": False,
+                        "type": "boolean",
+                        "dependencies": {"^compilerFrontend": ["gcc", "osx"]},
                     },
                     "compiler": {
                         "required": False,
