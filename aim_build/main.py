@@ -99,7 +99,6 @@ def entry():
 
     args = parser.parse_args()
     mode = args.command
-    print(f"args: {args}")
     if mode == "init":
         if args.demo_files:
             print("Initialising from demo project...")
