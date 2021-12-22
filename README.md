@@ -49,31 +49,13 @@ pip install --user aim-build
 
 ### Using
 
-There are 3 main commands:
-* `init` - initialises a directory with an empty project structure
-* `list --target=path/to/target_parent_dir` - displays the builds for the target
-* `build --target=path/to/target_parent_dir <build name>` - executes a build
-
-For more information run:
+Basic usage:
 ```
-aim <command> --help
+aim init --demo-files  # creates src, include, lib directory and adds demo files.
+aim target builds/clang++-linux-debug list  # lists the builds in the target file.
+aim target builds/clang++-linux-debug build <name>  # runs the build as specified by <name>.
+aim target builds/clang++-linux-debug clobber  # deletes all build artifacts.
 ```
-
-The easiest way to get started is to use:
-
-`aim init --demo-files`
-
-`aim init` can be used to generate an empty
-project structure and the `--demo-files` flags will copy a small test application into the current directory for 
-demonstration purposes.
-
-You can then list the available builds of a target by specifying:
-
-`aim list --target=builds/linux-clang++-debug`
-
-And to build:
-
-`aim build --target=builds/linux-clang++-debug <build name>`
 
 <img src="https://github.com/diwalkerdev/Assets/blob/master/Aim/aim-init-demo.gif?raw=true" width="600px">
 
