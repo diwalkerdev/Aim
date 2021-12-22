@@ -248,7 +248,6 @@ def target_schema(document, project_dir):
                     "dynamicLoading": {
                         "required": False,
                         "type": "boolean",
-                        "dependencies": {"^compilerFrontend": ["gcc", "osx"]},
                     },
                     "compiler": {
                         "required": False,

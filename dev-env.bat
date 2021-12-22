@@ -1,4 +1,8 @@
 @echo off
+
+REM Note(DW): Once you run this script the aimcmd is executed using
+REM %aimcmd% ...
+
 set PYTHONPATH=%cd%
 echo PYTHONPATH: %PYTHONPATH%
 
@@ -9,5 +13,5 @@ REM Because this is how you expand commands in batch scripts. Facepalm.
 for /f %%i in ('poetry env info -p') do set AIM_POETRY=%%i
 echo AIM_POETRY: %AIM_POETRY%
 
-set "aimcmd=%AIM_POETRY%\Scripts\python %cd%\aim_build\main.py"
+setx aimcmd "%AIM_POETRY%\Scripts\python %cd%\aim_build\main.py" /m
 echo aimcmd:     %aimcmd%
