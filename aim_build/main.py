@@ -91,6 +91,17 @@ def entry():
     #     "--args", help="additional arguments forwarded to the compiler", nargs="*"
     # )
 
+    run_parser = target_sub.add_parser(name="run",
+                                       help="[-h] runs the build if it is an executable")
+
+    run_parser.add_argument("build",
+                            type=str,
+                            help="the build name")
+
+    run_parser.add_argument("args",
+                            nargs=argparse.REMAINDER,
+                            help="arguments forwarded to the executable")
+
     target_sub.add_parser(name="list",
                           help="display the builds")
 
@@ -127,8 +138,31 @@ def entry():
             run_list(path)
         elif target == "clobber":
             run_clobber(path)
+        elif target == "run":
+            run_run(path, args)
+
     else:
         parser.print_help(sys.stdout)
+
+
+def run_run(path, args):
+    target_file = load_target_file(path)
+
+    the_build = find_build(args.build, target_file["builds"])
+
+    build_type = the_build["buildRule"]
+    if build_type != "executable":
+        print(f"Error: {args.build} is not executable")
+        exit(-1)
+    name = the_build["outputName"]
+
+    build_dir = make_build_path(path)
+    command = build_dir / args.build / name
+    forward_args = args.args if args.args else []
+    str_repr = " ".join(forward_args)
+    print(f"Running: {command} {str_repr}")
+    return_code = subprocess.run([command] + forward_args)
+    sys.exit(return_code.returncode)
 
 
 def run_init(demo_zip: zipfile.ZipFile, subdir_name):
@@ -282,9 +316,11 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
     if not skip_ninja_regen:
         print("Generating ninja files...")
         generate_flat_ninja_file(target_dict, project_dir, build_dir, args)
-        with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
-            command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
-            subprocess.run(command, stdout=cc_json, check=True)
+        COMPILE_COMMANDS = False
+        if COMPILE_COMMANDS:
+            with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
+                command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
+                subprocess.run(command, stdout=cc_json, check=True)
 
     return run_ninja(build_dir, the_build["name"])
 
@@ -305,22 +341,22 @@ def add_naming_convention(
     return new_name
 
 
-def run_list(target_path):
-    build_dir = Path().cwd()
-
-    if target_path:
-        target_path = Path(target_path)
-        if target_path.is_absolute():
-            build_dir = target_path
-        else:
-            build_dir = build_dir / Path(target_path)
+def load_target_file(target_path):
+    build_dir = make_build_path(target_path)
 
     target_file = build_dir / "target.py"
     assert target_file.exists(), f"Error: {str(target_file)} does not exists."
 
     target_module = load_target_py_file(target_file)
     target_dict = convert_target_module_to_dict(target_module)
+    return target_dict
 
+    # builds = target_dict["builds"]
+    # return builds
+
+
+def run_list(target_path):
+    target_dict = load_target_file(target_path)
     builds = target_dict["builds"]
 
     frontend = target_dict["compilerFrontend"]
