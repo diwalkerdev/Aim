@@ -25,8 +25,8 @@ call %AIMCMD% target builds/windows-clangcl-debug build calculatortests
 call %AIMCMD% target builds/windows-clangcl-debug build calculatorapp
 
 REM Remember, all outputs get dumped into the same directory on Windows.
-builds\windows-clangcl-debug\CalculatorTests.exe
-builds\windows-clangcl-debug\CalculatorApp.exe
+call %AIMCMD% target builds/windows-clangcl-debug run calculatortests
+call %AIMCMD% target builds/windows-clangcl-debug run calculatorapp
 
 call %AIMCMD% target builds/windows-clangcl-debug clobber
 

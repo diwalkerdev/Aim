@@ -28,8 +28,6 @@ aim target builds/linux-clang++-debug build calculatorapp
 
 aim target builds/linux-clang++-debug run calculatortests
 aim target builds/linux-clang++-debug run calculatorapp
-#./builds/linux-clang++-debug/calculatortests/CalculatorTests
-#./builds/linux-clang++-debug/calculatorapp/CalculatorApp
 
 aim target builds/linux-clang++-debug clobber
 

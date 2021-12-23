@@ -157,7 +157,10 @@ def run_run(path, args):
     name = the_build["outputName"]
 
     build_dir = make_build_path(path)
-    command = build_dir / args.build / name
+    if target_file["compilerFrontend"] == "msvc":
+        command = build_dir / name
+    else:
+        command = build_dir / args.build / name
     forward_args = args.args if args.args else []
     str_repr = " ".join(forward_args)
     print(f"Running: {command} {str_repr}")

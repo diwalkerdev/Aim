@@ -27,7 +27,10 @@ Aim supports:
 tested.
 
 ## Updates
- * Aim no longer uses the `toml` for the `target` file format. `target` files are now written in Python. The motivation
+* (23/12/2021) CLI has changed. `list`, `build`, `run` and `clobber` are now `target` commands and are executed like so: 
+`aim target <path> build <name>` instead of `aim build --target=<path> <name>`. This is to make switching between 
+commands easier.
+* Aim no longer uses the `toml` for the `target` file format. `target` files are now written in Python. The motivation
 for this change is that it can be useful to access environment variables and to store properties, such as compiler flags,
 as variables. To support this change, there is the `util/convert_toml.py` script. To convert a `toml` file, execute from 
 the aim root directory:`poetry run python util\convert_toml.py <relative/path/to/target.toml>`. The Python file will be
@@ -53,8 +56,13 @@ Basic usage:
 ```
 aim init --demo-files  # creates src, include, lib directory and adds demo files.
 aim target builds/clang++-linux-debug list  # lists the builds in the target file.
-aim target builds/clang++-linux-debug build <name>  # runs the build as specified by <name>.
+aim target builds/clang++-linux-debug build <build-name>  # runs the build as specified by <name>.
 aim target builds/clang++-linux-debug clobber  # deletes all build artifacts.
+```
+You can run executables directly or using the `run` command:
+```
+./builds/clang++-linux-debug/<build-name>/<output-name>
+aim target builds/clang++-linux-debug run <build-name> 
 ```
 
 <img src="https://github.com/diwalkerdev/Assets/blob/master/Aim/aim-init-demo.gif?raw=true" width="600px">
@@ -135,8 +143,9 @@ Other notes:
 
 * A `libraryReference` does not have `sourceFiles` as it is not built. Like the `headerOnly` rule it is mostly for convience to reduce duplication. The primary use case is for capturing the `includePaths`, `libraryPaths` and `libraries` of a third party library that you need to use in a build. A `libraryReference` can then be used by other builds by adding it to a builds `requires` field.
 
-
 * The fields `compiler`, `flags` and `defines` are normally written at the top of the target file before the builds section. By default, all builds will use these fields i.e. they are global, but they can also be overridden by specifying them again in a build. Note that when these fields are specified specifically for a build, they completely replace the global definition; any `flags` or `defines` that you specify must be written out in full as they will not share any values with the global definition.
+
+* Since target files are just python, you can have variables. However, since target files are validated with a schema, variables must be escaped with a leading underscore. For example `_custom_defines = [...]` is okay, but `custom_defines = [...]` will cause a schema error.
 
 ## Supporting Multiple Targets
 Aim treats any build variation as its own unique build target with its own unique `target.py`. 
