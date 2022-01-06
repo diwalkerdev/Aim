@@ -319,7 +319,7 @@ def run_build(build_name, target_path, skip_ninja_regen, args):
     if not skip_ninja_regen:
         print("Generating ninja files...")
         generate_flat_ninja_file(target_dict, project_dir, build_dir, args)
-        COMPILE_COMMANDS = False
+        COMPILE_COMMANDS = True
         if COMPILE_COMMANDS:
             with (build_dir.resolve() / "compile_commands.json").open("w+") as cc_json:
                 command = ["ninja", "-C", str(build_dir.resolve()), "-t", "compdb"]
