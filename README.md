@@ -20,6 +20,26 @@ Aim is an attempt to make building C++ projects from source as simple as possibl
 Aim only requires a `target.py` file which is used to specify the builds of your project. Each build specifies a
 component of your project, like a static library, dynamic library, or an executable.
 
+Each target you aim to support requires its own `target.py` file. This is easier to explain with an example:
+```
++ Project
+  + builds
+    + linux-debug
+      - target.py
+    + linux-release
+      - target.py
+    + windows-debug
+      - target.py
+    + windows-release
+      - target.py
+  + src
+    + ...
+```
+Where `windows/linux` and `debug/release` compose to make make different targets.
+
+When running commands, you often need to specify the path to directory of the target.py file. For example: `builds/windows-debug` or `builds/linux-release`.
+Do not add `target.py` to the path.
+
 Aim supports:
  * Windows with `msvc` frontend.
  * Linux with `gcc` frontend.
@@ -27,6 +47,8 @@ Aim supports:
 tested.
 
 ## Updates
+* (23/01/2022) CLI has changed again. Removed previous change. There is now a `exec` command that executes several
+commands in one. For example `aim exec <path> <build> clobber build run`.
 * (23/12/2021) CLI has changed. `list`, `build`, `run` and `clobber` are now `target` commands and are executed like so: 
 `aim target <path> build <name>` instead of `aim build --target=<path> <name>`. This is to make switching between 
 commands easier.
@@ -42,7 +64,10 @@ Aim requires the following dependencies:
 * [python](https://www.python.org/) - version 3.7 or above.
 * [ninja](https://ninja-build.org/)
 * [poetry](https://python-poetry.org/) - for development only
-
+    + linux-debug
+      + target.py
+    + linux-release
+      + target.py
 ### Installation
 Aim is a `python` project and is installed using `pip`.
 
@@ -54,15 +79,16 @@ pip install --user aim-build
 
 Basic usage:
 ```
-aim init --demo-files  # creates src, include, lib directory and adds demo files.
-aim target builds/clang++-linux-debug list  # lists the builds in the target file.
-aim target builds/clang++-linux-debug build <build-name>  # runs the build as specified by <name>.
-aim target builds/clang++-linux-debug clobber  # deletes all build artifacts.
+aim --help                                    # displays the help.
+aim init --demo-files                         # creates src, include, lib directory and adds demo files.
+aim list builds/linux-clang++-debug           # lists the builds in target.py
+aim build builds/linux-clang++-debug <build>  # executes <build>.
+aim clobber builds/linux-clang++-debug        # deletes all build artifacts.
 ```
 You can run executables directly or using the `run` command:
 ```
 ./builds/clang++-linux-debug/<build-name>/<output-name>
-aim target builds/clang++-linux-debug run <build-name> 
+aim run builds/clang++-linux-debug run <build-name> 
 ```
 
 <img src="https://github.com/diwalkerdev/Assets/blob/master/Aim/aim-init-demo.gif?raw=true" width="600px">

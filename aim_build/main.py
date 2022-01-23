@@ -34,83 +34,109 @@ def run_ninja(working_dir, build_name):
 
 
 def entry():
-    # print("DEV")
     script_path = Path(__file__).parent
 
     # TODO: Get version automatically from the pyproject.toml file.
     parser = argparse.ArgumentParser(prog="aim", description=f"Version {__version__}")
 
-    sub_parser = parser.add_subparsers(dest="command", help="Commands")
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    subparsers.add_parser(name="version", help="Displays the version number")
 
-    # Version command
-    # -------------
-    # sub_parser.add_parser(name="version", help="Displays the version number")
+    def make_init_command(_subparsers):
+        init_parser = _subparsers.add_parser(name="init",
+                                             help="Creates a project structure with optional demo files")
 
-    # Init command
-    # -------------
-    init_parser = sub_parser.add_parser(name="init", help="creates a project structure")
+        init_parser.add_argument("--demo-files",
+                                 help="Creates additional demo files",
+                                 action="store_true")
 
-    init_parser.add_argument("--demo-files",
-                             help="create additional demo files",
-                             action="store_true")
 
-    # Target command
-    # --------------
-    target_parser = sub_parser.add_parser(name="target",
-                                          help="[-h] initiate target commands {build, list, clobber}")
+    def make_clobber_command(_subparsers):
+        clobber_parser = _subparsers.add_parser(name="clobber",
+                                                help="Deletes all build artifacts")
 
-    target_parser.add_argument("path",
-                               type=str,
-                               help="path to directory containing target.py")
+        clobber_parser.add_argument("path",
+                                 help="The directorty containing target.py")
 
-    target_sub = target_parser.add_subparsers(dest="target")
+    def make_list_command(_subparsers):
+        list_parser = _subparsers.add_parser(name="list",
+                                             help="Lists the builds in target.py")
 
-    build_parser = target_sub.add_parser(name="build",
-                                         help="[-h] executes a build")
+        list_parser.add_argument("path",
+                                 help="The directorty containing target.py")
 
-    build_parser.add_argument("build",
-                              type=str,
-                              help="the build name")
 
-    build_parser.add_argument(
-        "--skip-ninja-regen",
-        help="by-pass the ninja file generation step",
-        action="store_true",
-    )
+    def make_build_command(_subparsers):
+        build_parser = _subparsers.add_parser(name="build",
+                                              help="Executes a build specified in target.py")
 
-    # TODO: Get this working again.
-    # build_parser.add_argument(
-    #     "--profile-build",
-    #     help="forwards -ftime-trace to the compiler for emitting build profile information."
-    #          " View using chome://tracing.",
-    #     action="store_true",
-    # )
+        build_parser.add_argument("path",
+                                  help="The directorty containing target.py")
 
-    # TODO: Get this working again.
-    # build_parser.add_argument(
-    #     "--args", help="additional arguments forwarded to the compiler", nargs="*"
-    # )
+        build_parser.add_argument("build",
+                                  type=str,
+                                  help="The name of the build to execute")
 
-    run_parser = target_sub.add_parser(name="run",
-                                       help="[-h] runs the build if it is an executable")
+        build_parser.add_argument(
+            "-s",
+            "--skip-ninja",
+            help="Skip regenerating build.ninja file on build",
+            action="store_true",
+        )
 
-    run_parser.add_argument("build",
-                            type=str,
-                            help="the build name")
+    def make_run_command(_subparsers):
+        run_parser = _subparsers.add_parser(name="run",
+                                            help="Launches executable")
 
-    run_parser.add_argument("args",
-                            nargs=argparse.REMAINDER,
-                            help="arguments forwarded to the executable")
+        run_parser.add_argument("path",
+                                help="The directorty containing target.py")
 
-    target_sub.add_parser(name="list",
-                          help="display the builds")
+        run_parser.add_argument("build",
+                                type=str,
+                                help="The name of the build to execute")
 
-    target_sub.add_parser(name="clobber",
-                          help="deletes all build artifacts")
+        run_parser.add_argument("args",
+                                nargs=argparse.REMAINDER,
+                                help="arguments forwarded to the executable")
+
+    def make_exec_command(_subparsers):
+        exec_parser = _subparsers.add_parser(name="exec",
+                                            help="Executes several commands in one")
+
+        exec_parser.add_argument("path",
+                                help="The directorty containing target.py")
+
+        exec_parser.add_argument("build",
+                                type=str,
+                                help="The name of the build to execute")
+
+        exec_parser.add_argument(
+            "-s",
+            "--skip-ninja",
+            help="Skip regenerating build.ninja file on build",
+            action="store_true",
+        )
+
+        exec_parser.add_argument("operations",
+                                 nargs="*",
+                                 choices=["clobber", "list", "build", "run"],
+                                 help="The commands to execute.")
+
+        exec_parser.add_argument("args",
+                                nargs=argparse.REMAINDER,
+                                help="arguments forwarded to the executable")
+
+    make_init_command(subparsers)
+    make_clobber_command(subparsers)
+    make_list_command(subparsers)
+    make_build_command(subparsers)
+    make_run_command(subparsers)
+    make_exec_command(subparsers)
 
     args = parser.parse_args()
-    mode = args.command
-    if mode == "init":
+    command = args.command
+
+    if command == "init":
         if args.demo_files:
             print("Initialising from demo project...")
             relative_dir = "demo/Calculator"
@@ -122,30 +148,48 @@ def entry():
         assert zip_path.exists(), f"Failed to find demo zip files: {str(zip_path)}"
         with zipfile.ZipFile(str(zip_path)) as zip_file:
             run_init(zip_file, relative_dir)
-    elif mode == "target":
-        target = args.target
-        path = args.path
-        if target == "build":
-            args.args = None
-            args.profile_build = None
-            forwarding_args = [] if args.args is None else args.args
-            if args.profile_build and "-ftime-trace" not in forwarding_args:
-                forwarding_args.append("-ftime-trace")
 
-            ret_code = run_build(args.build, path, args.skip_ninja_regen, forwarding_args)
-            sys.exit(ret_code)
-        elif target == "list":
-            run_list(path)
-        elif target == "clobber":
-            run_clobber(path)
-        elif target == "run":
-            run_run(path, args)
+    elif command == "clobber":
+        run_clobber(args.path)
 
+    elif command == "list":
+        run_list(args.path)
+
+    elif command == "build":
+        forwarding_args = []
+        ret_code = run_build(args.build, args.path, args.skip_ninja, forwarding_args)
+        sys.exit(ret_code)
+
+    elif command == "run":
+        forward = args.args if args.args else []
+        ret_code = run_run(args.path, args, forward)
+        sys.exit(ret_code)
+
+    elif command == "exec":
+        for command in args.operations:
+            if "list" == command:
+                run_list(args.path)
+
+            elif "clobber" == command:
+                run_clobber(args.path)
+
+            elif "build" == command:
+                # TODO: forwardarding build args.
+                forwarding_args = []
+                ret_code = run_build(args.build, args.path, args.skip_ninja, forwarding_args)
+                if ret_code:
+                    sys.exit(ret_code)
+
+            elif "run" == command:
+                forward = args.args if args.args else []
+                ret_code = run_run(args.path, args, forward)
+                if ret_code:
+                    sys.exit(ret_code)
     else:
         parser.print_help(sys.stdout)
 
 
-def run_run(path, args):
+def run_run(path, args, unknown):
     target_file = load_target_file(path)
 
     the_build = find_build(args.build, target_file["builds"])
@@ -161,11 +205,12 @@ def run_run(path, args):
         command = build_dir / name
     else:
         command = build_dir / args.build / name
-    forward_args = args.args if args.args else []
+    # forward_args = args.args if args.args else []
+    forward_args = unknown
     str_repr = " ".join(forward_args)
     print(f"Running: {command} {str_repr}")
     return_code = subprocess.run([command] + forward_args)
-    sys.exit(return_code.returncode)
+    return return_code.returncode
 
 
 def run_init(demo_zip: zipfile.ZipFile, subdir_name):
